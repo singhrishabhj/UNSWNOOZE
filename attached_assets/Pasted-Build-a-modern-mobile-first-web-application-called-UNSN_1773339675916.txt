@@ -1,0 +1,449 @@
+Build a modern mobile-first web application called **UNSNWOOZE – Smart Alarm & Anti-Snooze Productivity App**.
+
+The purpose of this application is to prevent users from repeatedly snoozing alarms and help them build disciplined morning routines.
+
+The product must feel like a premium productivity application with a clean, minimal interface. The design should be calm, modern, and visually refined while remaining extremely simple to use.
+
+Prioritize **design quality, smooth UI interactions, and minimalistic layout**.
+
+---
+
+TECH STACK
+
+Frontend: React
+Styling: TailwindCSS
+Backend: Node.js + Express
+Database: Supabase or Firebase
+Camera Access: Browser Camera API
+Voice: Web Speech API
+
+Make the application installable as a **Progressive Web App (PWA)** so it behaves like a mobile application.
+
+---
+
+DESIGN PHILOSOPHY
+
+The interface should follow these principles:
+
+Minimal interface
+Large readable elements
+Clear visual hierarchy
+Soft shadows and rounded cards
+Generous white space
+Smooth transitions
+Subtle micro-interactions
+
+Avoid clutter and unnecessary components.
+
+The application should feel calm, focused, and premium.
+
+---
+
+COLOR SYSTEM
+
+Light Mode
+
+Primary: #FF6B00
+Background: #FFFFFF
+Text: #111111
+Secondary Surface: #F5F5F5
+
+Dark Mode
+
+Primary: #FF6B00
+Background: #0F0F0F
+Card Surface: #1A1A1A
+Text: #FFFFFF
+
+Include a smooth animated toggle to switch between dark mode and light mode.
+
+---
+
+TYPOGRAPHY
+
+Use a clean modern font such as **Inter**.
+
+Guidelines:
+
+Large digital clock typography
+Minimal headings
+Comfortable spacing between sections
+Highly readable interface
+
+---
+
+APP FLOW
+
+App Launch
+Splash Screen
+Onboarding
+Permissions
+Home Dashboard
+Create Alarm
+Alarm Trigger
+Wake-Up Task
+Alarm Completion
+Streak Update
+
+---
+
+SPLASH SCREEN
+
+Display a minimal splash screen.
+
+Elements:
+
+App name: UNSNWOOZE
+Minimal animated clock
+Dark background with subtle orange accent
+
+Duration: approximately 2 seconds.
+
+---
+
+ONBOARDING EXPERIENCE
+
+Create a meaningful swipe-based onboarding flow with subtle animation.
+
+Each onboarding screen should follow this layout:
+
+1. Title (large heading)
+2. Short supporting message
+3. Minimal visual animation
+
+Screen 1
+
+Title: The Snooze Loop
+
+Message:
+
+Every morning begins the same way.
+The alarm rings.
+You press snooze again and again.
+
+---
+
+Screen 2
+
+Title: Lost Mornings
+
+Message:
+
+Small delays become lost hours.
+Your day begins already behind schedule.
+
+---
+
+Screen 3
+
+Title: A Different Alarm
+
+Message:
+
+UNSNWOOZE prevents endless snoozing.
+You must complete an action before the alarm stops.
+
+---
+
+Screen 4
+
+Title: Wake With Action
+
+Message:
+
+Before the alarm stops you must complete a task.
+
+Examples:
+
+Face verification
+Photo verification
+
+---
+
+Screen 5
+
+Title: Build Discipline
+
+Message:
+
+Consistent mornings create powerful habits.
+
+Button: Get Started
+
+---
+
+PERMISSIONS
+
+After onboarding request permissions:
+
+Camera access
+Notifications
+Microphone (optional for voice alarms)
+
+---
+
+HOME DASHBOARD
+
+The dashboard should feel calm and organized.
+
+Layout:
+
+Top Section
+Large animated digital clock displaying current time.
+
+Important UI detail:
+
+When the time changes (for example 5:59 to 6:00), the digits should **smoothly animate or slide** rather than instantly changing. This creates a premium clock experience.
+
+Add a **subtle orange ambient glow behind the clock** to create a calm visual focus.
+
+---
+
+STREAK SECTION
+
+Instead of only numbers, show a **circular streak progress ring**.
+
+The ring visually fills as streak increases.
+
+Inside the ring show:
+
+Current Streak
+Example: 6 Day Streak
+
+Display Best Streak below the ring.
+
+This visual progress system should feel rewarding and motivational.
+
+---
+
+ALARM LIST
+
+Display all alarms in minimal card format.
+
+Each card shows:
+
+Alarm time
+Alarm title
+Repeat days
+Enabled toggle
+
+Add a floating button to create a new alarm.
+
+---
+
+CREATE ALARM
+
+Users can configure:
+
+Alarm Time
+Alarm Title
+Repeat Days
+Wake-Up Task
+Alarm Sound Type
+
+Wake-Up Tasks:
+
+Face Verification
+Toothpaste Photo Verification
+
+Use clean card-based input sections.
+
+---
+
+ALARM SOUND TYPE
+
+Allow users to select how the alarm behaves.
+
+Option 1
+Standard Alarm Sound
+
+A repeating alarm tone plays until the wake-up task is completed.
+
+Option 2
+Speak Alarm Title
+
+Instead of a ringtone, the application repeatedly speaks the alarm title using text-to-speech.
+
+Example:
+
+Alarm Time: 6:00 AM
+Alarm Title: Morning Workout
+
+If Speak Alarm Title is enabled, the system will repeatedly say:
+
+"Morning Workout. Wake up."
+
+Speech should repeat every 4–6 seconds until the user completes the wake-up task.
+
+Use the Web Speech API for speech synthesis.
+
+---
+
+ALARM TRIGGER SCREEN
+
+When the alarm activates show a full-screen interface.
+
+Elements:
+
+Large animated clock
+Alarm title text
+Motivational message
+Alarm sound or spoken title
+
+Display one main action button:
+
+Complete Wake-Up Task
+
+The alarm cannot be dismissed until the task is completed.
+
+---
+
+WAKE-UP TASKS
+
+FACE VERIFICATION
+
+Open device camera.
+User takes selfie.
+
+For MVP simulate verification logic such as:
+
+Eyes open
+Smile detection
+
+If conditions pass the alarm stops.
+
+---
+
+TOOTHPASTE PHOTO VERIFICATION
+
+Open camera.
+
+User must capture a photo of toothpaste.
+
+The alarm stops only after the photo is captured.
+
+This forces the user to physically get out of bed.
+
+---
+
+ALARM COMPLETION EXPERIENCE
+
+When the wake-up task is completed show a **calm completion screen**.
+
+Example:
+
+Title: Morning Started
+
+Subtext:
+Day 7 streak maintained.
+
+Add a subtle animation such as:
+
+Soft sunrise glow
+Expanding circle animation
+
+After 2 seconds automatically return to the dashboard.
+
+This creates a small psychological reward for completing the task.
+
+---
+
+STREAK SYSTEM
+
+Track waking discipline.
+
+Display:
+
+Current Streak
+Best Streak
+
+Rules:
+
+Successful wake-up increases streak.
+Missing an alarm resets streak.
+
+---
+
+GAMIFICATION
+
+Unlock levels based on streaks.
+
+3 Days — Sleepy Panda
+7 Days — Early Bird
+15 Days — Morning Warrior
+30 Days — Discipline Master
+
+Display achievement badges on the dashboard.
+
+---
+
+MULTI LANGUAGE SUPPORT
+
+Provide language toggle.
+
+Languages:
+
+English
+Hindi
+
+Example Hindi prompts:
+
+Uth jaa bhai
+Subah ho gayi
+
+---
+
+VOICE ALARM
+
+Use Web Speech API to read alarm titles aloud.
+
+Allow users to optionally record custom voice alarms.
+
+---
+
+DATA STORAGE
+
+Store:
+
+User alarms
+Alarm titles
+Wake-up task selection
+Streak data
+Achievements
+Language preference
+Theme preference
+
+---
+
+MVP FEATURES
+
+Implement these first:
+
+Alarm creation
+Alarm trigger interface
+Face verification simulation
+Toothpaste photo verification
+Voice title alarm
+Streak tracking
+Gamification badges
+Dark and light mode
+Minimal premium UI
+
+---
+
+EXTRA UI DETAILS
+
+Include subtle micro-interactions:
+
+Smooth button press animation
+Soft page transitions
+Animated clock digits
+Streak progress ring animation
+Calm completion screen animation
+
+The application should feel calm, modern, and satisfying to use every morning.
+
+Project Name:
+
+UNSNWOOZE
+Smart Alarm & Anti-Snooze Productivity App
