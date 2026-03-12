@@ -48,15 +48,19 @@ export default function AlarmTriggerScreen() {
       const ctx = new AudioCtxClass() as AudioContext;
       audioCtxRef.current = ctx;
 
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = 0.5;
+      masterGain.connect(ctx.destination);
+
       const playBeep = (freq: number, startTime: number, duration: number) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(masterGain);
         osc.type = 'sine';
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(0.28, startTime + 0.01);
+        gain.gain.linearRampToValueAtTime(1.0, startTime + 0.01);
         gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
         osc.start(startTime);
         osc.stop(startTime + duration + 0.02);

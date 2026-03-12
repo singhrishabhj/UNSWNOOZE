@@ -1,0 +1,135 @@
+Update the existing **UNSNWOOZE** application to fix remaining functional issues and improve alarm behavior. Address the following problems: alarm volume handling, face verification with liveliness detection, toggle malfunction, and non-working delete functionality.
+
+---
+
+ALARM VOLUME CONTROL
+
+Implement a system to ensure the alarm sound plays at **50% volume by default** if the user allows audio playback.
+
+Requirements:
+
+* When the alarm triggers, set the audio volume to **0.5 (50%)**.
+* Ask the user for permission to play audio when the app is first used.
+* If permission is granted, automatically set alarm audio to 50%.
+* Use the HTML audio element with looping enabled.
+
+Example behavior:
+
+When alarm activates:
+
+* audio.volume = 0.5
+* audio.loop = true
+* audio.play()
+
+Ensure the alarm continues playing until the wake-up task is completed.
+
+If the user selects **Speak Alarm Title mode**, speech should still repeat every 4–6 seconds while maintaining consistent audible volume.
+
+---
+
+FACE VERIFICATION WITH LIVELINESS DETECTION
+
+Improve the face verification wake-up task.
+
+The alarm must only stop when a **real human face is detected and verified as live**.
+
+Implementation requirements:
+
+1. Use the device camera to capture live video.
+2. Detect a human face in the frame.
+3. Perform basic liveliness checks such as:
+
+* Eye blink detection
+* Head movement
+* Smile detection
+
+Only after these conditions are met should the alarm be allowed to turn off.
+
+Example verification flow:
+
+* Camera opens
+* Face detected
+* User blinks or moves head
+* Liveliness confirmed
+* Alarm stops
+
+If no face is detected or the face is not live, show message:
+
+"Face verification failed. Please try again."
+
+---
+
+FIX ALARM TOGGLE BEHAVIOR
+
+The toggle switch on the home dashboard still redirects users to the alarm settings page.
+
+Correct this behavior.
+
+Requirements:
+
+* Toggle must **only enable or disable the alarm**.
+* Toggle interaction must **not trigger navigation**.
+* Prevent the click event from propagating to the parent alarm card.
+
+Implementation guidance:
+
+Stop event propagation on the toggle element so the parent container click event does not fire.
+
+Correct behavior:
+
+Tap alarm card → open alarm settings
+Tap toggle switch → enable or disable alarm only
+
+---
+
+FIX DELETE ALARM FUNCTIONALITY
+
+The delete button currently does not remove alarms.
+
+Implement a fully functional delete system.
+
+Requirements:
+
+* Add a delete button either on the alarm card or in the alarm edit screen.
+* When clicked, show a confirmation dialog.
+
+Confirmation message:
+
+"Delete this alarm?"
+
+Buttons:
+
+Cancel
+Delete
+
+If the user confirms:
+
+* Remove the alarm from the database
+* Remove the alarm from the UI immediately
+* Cancel any scheduled trigger associated with that alarm
+
+Ensure the deleted alarm never triggers again.
+
+---
+
+DATA CONSISTENCY
+
+Ensure that alarm updates are correctly reflected in:
+
+* Local application state
+* Database storage
+* Alarm scheduler
+
+Changes such as toggle updates or deletions must immediately update the active alarm list.
+
+---
+
+EXPECTED RESULT
+
+After these updates:
+
+* Alarm audio plays reliably at 50% volume when triggered
+* Face verification includes liveliness detection before disabling alarm
+* Toggle switch properly enables or disables alarms without navigation
+* Delete button successfully removes alarms from the system
+* Alarm list updates immediately and consistently
