@@ -218,11 +218,6 @@ const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
     right: 24,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 12,
   },
   fab: {
     width: 60,
