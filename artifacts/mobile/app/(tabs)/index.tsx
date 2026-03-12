@@ -56,10 +56,11 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
       <ScrollView
-        contentContainerStyle={{ paddingTop: topPad, paddingBottom: bottomPad + 100, paddingHorizontal: 20 }}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
       >
+      <View style={[styles.inner, { paddingTop: topPad, paddingBottom: bottomPad + 100 }]}>
         <View style={styles.header}>
           <View>
             <Text style={[styles.greeting, { color: colors.textSecondary }]}>Good morning</Text>
@@ -117,6 +118,7 @@ export default function HomeScreen() {
             />
           ))
         )}
+      </View>
       </ScrollView>
 
       <Pressable
@@ -143,6 +145,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    alignItems: 'center',
+  },
+  inner: {
+    width: '100%',
+    maxWidth: 480,
+    paddingHorizontal: 20,
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',

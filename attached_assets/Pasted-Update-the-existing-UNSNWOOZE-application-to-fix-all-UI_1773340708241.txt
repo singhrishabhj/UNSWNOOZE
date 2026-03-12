@@ -1,0 +1,174 @@
+Update the existing UNSNWOOZE application to fix all UI alignment and layout issues across the entire app. Focus strictly on layout consistency, spacing, and responsiveness while preserving the minimal premium design.
+
+---
+
+GLOBAL LAYOUT STANDARDIZATION
+
+Ensure all screens follow a consistent layout structure.
+
+Use a centered container layout with proper padding:
+
+* Max width: 420px for mobile layout
+* Horizontal padding: 20–24px
+* Vertical spacing between sections: 24–32px
+
+All screens should use consistent spacing and alignment rules.
+
+---
+
+CLOCK ALIGNMENT
+
+The main digital clock on the dashboard must be perfectly centered horizontally.
+
+Requirements:
+
+* Center align the clock text
+* Ensure equal padding on left and right
+* Maintain vertical spacing from top section
+* Prevent text overflow or clipping on smaller screens
+
+The animated clock digits should remain aligned even when numbers change.
+
+---
+
+STREAK PROGRESS RING ALIGNMENT
+
+The circular streak progress component must be centered on the screen.
+
+Fix the following:
+
+* Center the ring horizontally
+* Align the streak number exactly in the center of the ring
+* Ensure text inside the ring does not shift
+* Maintain consistent spacing between the ring and other elements
+
+---
+
+ALARM LIST CARD ALIGNMENT
+
+Fix the layout of alarm cards.
+
+Each alarm card should contain:
+
+* Alarm time (left aligned)
+* Alarm title (below time)
+* Toggle switch (right aligned)
+
+Requirements:
+
+* Maintain consistent padding inside the card
+* Align toggle switches vertically
+* Ensure text does not wrap incorrectly
+* Use flex layout to distribute space properly
+
+Example layout:
+
+Left side
+Alarm time
+Alarm title
+
+Right side
+Enable / Disable toggle
+
+---
+
+ADD ALARM BUTTON ALIGNMENT
+
+Ensure the floating action button for adding alarms is positioned correctly.
+
+Requirements:
+
+* Bottom right corner of the screen
+* Consistent margin from screen edges
+* Circular button
+* Shadow for elevation
+* Does not overlap alarm list content
+
+---
+
+FORM FIELD ALIGNMENT (CREATE ALARM SCREEN)
+
+All input fields must follow consistent alignment.
+
+Fields include:
+
+Alarm Time
+Alarm Title
+Repeat Days
+Wake-Up Task
+Alarm Sound Type
+
+Requirements:
+
+* Inputs should be full width
+* Labels aligned above inputs
+* Equal spacing between form fields
+* Buttons aligned consistently
+
+---
+
+ALARM TRIGGER SCREEN ALIGNMENT
+
+Fix layout of the alarm ringing screen.
+
+Requirements:
+
+* Clock centered horizontally
+* Alarm title centered
+* Motivational text centered
+* Wake-up task button centered
+
+Ensure balanced spacing between each element.
+
+---
+
+ONBOARDING SCREEN ALIGNMENT
+
+Each onboarding screen must maintain consistent layout.
+
+Requirements:
+
+* Title centered
+* Text centered
+* Visual animation centered
+* Swipe gesture should not cause layout shifts
+
+Maintain consistent vertical spacing across all onboarding screens.
+
+---
+
+RESPONSIVE DESIGN FIXES
+
+Ensure the interface works correctly on different screen sizes.
+
+Test for:
+
+Small phones
+Large phones
+Tablet width
+
+Requirements:
+
+* No element overflow
+* No misaligned buttons
+* Consistent padding across devices
+
+---
+
+TAILWIND IMPLEMENTATION GUIDELINES
+
+Use proper Tailwind layout utilities:
+
+flex
+items-center
+justify-center
+gap spacing utilities
+mx-auto for centering containers
+
+Avoid hard-coded margins that break responsiveness.
+
+---
+
+FINAL GOAL
+
+The entire application should feel visually balanced, centered, and polished with consistent spacing and alignment across all screens.

@@ -89,11 +89,26 @@ export default function CreateAlarmScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottomPad + 40, paddingTop: 8 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottomPad + 40, paddingTop: 8, maxWidth: 480, width: '100%', alignSelf: 'center' }}
         showsVerticalScrollIndicator={false}
+        style={{ alignSelf: 'center', width: '100%' }}
       >
         <View style={[styles.timeCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
-          <Text style={[styles.timeSectionLabel, { color: colors.textSecondary }]}>SET ALARM TIME</Text>
+          <View style={styles.timeCardHeader}>
+            <Text style={[styles.timeSectionLabel, { color: colors.textSecondary }]}>SET ALARM TIME</Text>
+            <Pressable
+              onPress={() => {
+                const d = new Date();
+                d.setMinutes(d.getMinutes() + 1, 0, 0);
+                setTime(d);
+                Haptics.selectionAsync();
+              }}
+              style={[styles.testBtn, { borderColor: colors.border }]}
+            >
+              <Feather name="clock" size={12} color={colors.textMuted} />
+              <Text style={[styles.testBtnText, { color: colors.textMuted }]}>Test +1 min</Text>
+            </Pressable>
+          </View>
           <TimePicker value={time} onChange={setTime} />
         </View>
 
@@ -240,11 +255,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 16,
   },
+  timeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   timeSectionLabel: {
     fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: 1.5,
-    alignSelf: 'flex-start',
+  },
+  testBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  testBtnText: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 0.3,
   },
   card: {
     borderRadius: 20,

@@ -33,10 +33,81 @@ export default function AlarmTriggerScreen() {
   const alarm = data.alarms.find(a => a.id === alarmId);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [quote] = useState(() => MOTIVATIONAL[Math.floor(Math.random() * MOTIVATIONAL.length)]);
-  const speechRef = useRef<any>(null);
+  const speechRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const startStandardAlarm = useCallback(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    try {
+      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtxClass) return;
+      const ctx = new AudioCtxClass() as AudioContext;
+      audioCtxRef.current = ctx;
+
+      const playBeep = (freq: number, startTime: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.28, startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.02);
+      };
+
+      const ringPattern = () => {
+        if (!audioCtxRef.current) return;
+        const t = audioCtxRef.current.currentTime;
+        playBeep(880, t, 0.18);
+        playBeep(880, t + 0.22, 0.18);
+        playBeep(1100, t + 0.44, 0.28);
+      };
+
+      ringPattern();
+      beepIntervalRef.current = setInterval(ringPattern, 1400);
+    } catch (e) {
+    }
+  }, []);
+
+  const stopStandardAlarm = useCallback(() => {
+    if (beepIntervalRef.current) {
+      clearInterval(beepIntervalRef.current);
+      beepIntervalRef.current = null;
+    }
+    try {
+      audioCtxRef.current?.close();
+      audioCtxRef.current = null;
+    } catch {}
+  }, []);
+
+  const startVoiceAlarm = useCallback((title: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    const speak = () => {
+      const utterance = new SpeechSynthesisUtterance(`${title}. Wake up.`);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      window.speechSynthesis.speak(utterance);
+    };
+    speak();
+    speechRef.current = setInterval(speak, 5000);
+  }, []);
+
+  const stopVoiceAlarm = useCallback(() => {
+    if (speechRef.current) {
+      clearInterval(speechRef.current);
+      speechRef.current = null;
+    }
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
 
   useEffect(() => {
     Animated.loop(
@@ -48,39 +119,23 @@ export default function AlarmTriggerScreen() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-    if (Platform.OS === 'web' && alarm?.soundType === 'voice' && alarm?.title) {
-      startVoiceAlarm(alarm.title);
+    if (Platform.OS === 'web') {
+      if (alarm?.soundType === 'voice' && alarm?.title) {
+        startVoiceAlarm(alarm.title);
+      } else {
+        startStandardAlarm();
+      }
     }
 
     return () => {
       stopVoiceAlarm();
+      stopStandardAlarm();
     };
   }, []);
 
-  const startVoiceAlarm = (title: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const speak = () => {
-      const utterance = new SpeechSynthesisUtterance(`${title}. Wake up.`);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      window.speechSynthesis.speak(utterance);
-    };
-    speak();
-    speechRef.current = setInterval(speak, 5000);
-  };
-
-  const stopVoiceAlarm = () => {
-    if (speechRef.current) {
-      clearInterval(speechRef.current);
-      speechRef.current = null;
-    }
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-  };
-
   const handleCompleteTask = () => {
     stopVoiceAlarm();
+    stopStandardAlarm();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.replace({ pathname: '/alarm/task', params: { alarmId } });
   };
@@ -102,12 +157,19 @@ export default function AlarmTriggerScreen() {
           <Text style={styles.quote}>{quote}</Text>
         </View>
 
-        {alarm?.soundType === 'voice' && (
-          <View style={styles.voiceIndicator}>
-            <Feather name="mic" size={14} color={Colors.primary} />
-            <Text style={styles.voiceText}>Speaking alarm title</Text>
-          </View>
-        )}
+        <View style={styles.soundRow}>
+          {alarm?.soundType === 'voice' ? (
+            <View style={styles.soundIndicator}>
+              <Feather name="mic" size={13} color={Colors.primary} />
+              <Text style={styles.soundText}>Speaking alarm title</Text>
+            </View>
+          ) : (
+            <View style={styles.soundIndicator}>
+              <Feather name="volume-2" size={13} color={Colors.primary} />
+              <Text style={styles.soundText}>Standard alarm ringing</Text>
+            </View>
+          )}
+        </View>
 
         <Animated.View style={[styles.buttonWrapper, { transform: [{ scale: pulseAnim }] }]}>
           <Pressable
@@ -148,15 +210,21 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 28,
+    alignItems: 'center',
     justifyContent: 'space-around',
+    maxWidth: 480,
+    alignSelf: 'center',
+    width: '100%',
   },
   topSection: {
     alignItems: 'center',
     marginTop: 20,
+    width: '100%',
   },
   midSection: {
     alignItems: 'center',
     gap: 16,
+    width: '100%',
   },
   alarmTitle: {
     fontSize: 32,
@@ -173,11 +241,13 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontStyle: 'italic',
   },
-  voiceIndicator: {
+  soundRow: {
+    alignItems: 'center',
+  },
+  soundIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    alignSelf: 'center',
     backgroundColor: 'rgba(255,107,0,0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255,107,0,0.3)',
@@ -185,7 +255,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
-  voiceText: {
+  soundText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
     color: Colors.primary,
@@ -197,6 +267,7 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 16,
     marginBottom: 20,
+    width: '100%',
   },
   wakeBtn: {
     borderRadius: 24,

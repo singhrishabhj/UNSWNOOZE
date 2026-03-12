@@ -1,0 +1,125 @@
+Fix the alarm triggering system in the UNSNWOOZE application. Currently alarms can be created but they do not actually trigger or ring when the scheduled time arrives.
+
+The alarm system must be corrected so alarms reliably activate at the scheduled time.
+
+---
+
+ALARM SCHEDULING LOGIC
+
+Implement a reliable client-side alarm scheduler.
+
+Requirements:
+
+1. When an alarm is saved, store the following data:
+
+* Alarm time (hour and minute)
+* Alarm title
+* Alarm enabled status
+* Alarm sound type (ringtone or speak title)
+* Wake-up task type
+* Repeat days
+
+2. Run a background time checker that continuously compares the current system time with saved alarms.
+
+Use a timer such as:
+
+setInterval checking every second or every few seconds.
+
+Example logic:
+
+* Get current time
+* Compare with stored alarms
+* If hour and minute match an enabled alarm
+* Trigger the alarm screen
+
+---
+
+ALARM TRIGGER CONDITION
+
+An alarm should trigger when:
+
+currentHour == alarmHour
+AND
+currentMinute == alarmMinute
+AND
+alarmEnabled == true
+
+When conditions match, immediately open the alarm trigger screen.
+
+Prevent the alarm from triggering multiple times within the same minute.
+
+---
+
+ALARM SOUND BEHAVIOR
+
+If alarm sound type is:
+
+STANDARD ALARM
+
+Play a repeating alarm sound using the HTML audio element.
+
+The sound should loop continuously until the wake-up task is completed.
+
+---
+
+SPEAK ALARM TITLE MODE
+
+If the user selected "Speak Alarm Title":
+
+Use the Web Speech API.
+
+Repeat speech every 4–6 seconds.
+
+Example spoken message:
+
+"[Alarm Title]. Wake up."
+
+Example:
+
+"Morning workout. Wake up."
+
+Continue repeating until the wake-up task is completed.
+
+---
+
+ENSURE ALARM WORKS WHEN APP IS OPEN
+
+The alarm system must function while the app is open in the browser.
+
+Even if the user is on a different screen in the app, the alarm must still trigger.
+
+---
+
+TESTING FUNCTION
+
+Add a temporary developer testing feature:
+
+When creating an alarm, allow selecting a time **1 minute in the future** for testing.
+
+Verify that:
+
+* Alarm screen appears
+* Sound plays
+* Speak title works
+* Alarm stops only after completing the wake-up task
+
+---
+
+ERROR PREVENTION
+
+Fix these potential issues:
+
+* Alarm not triggering due to incorrect time comparison
+* Alarm triggering multiple times
+* Alarm audio not looping
+* Speech not repeating
+
+---
+
+EXPECTED RESULT
+
+When the scheduled time arrives:
+
+1. Alarm trigger screen appears automatically.
+2. Either alarm sound plays OR alarm title speech repeats.
+3. Alarm cannot be dismissed until wake-up task is completed.

@@ -15,10 +15,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider } from "@/context/AppContext";
+import { useAlarmScheduler } from "@/hooks/useAlarmScheduler";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function AlarmScheduler() {
+  useAlarmScheduler();
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -55,6 +61,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AppProvider>
+            <AlarmScheduler />
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
                 <RootLayoutNav />
