@@ -1,0 +1,116 @@
+Update the UNSNWOOZE application to improve the Face Verification wake-up task by implementing a **liveliness check using head rotation**.
+
+The alarm must only turn off after detecting a real human face and verifying that the user has rotated their head from left to right.
+
+---
+
+FACE DETECTION
+
+Use a browser-based face detection library such as:
+
+MediaPipe FaceMesh
+or
+TensorFlow.js face-landmarks-detection
+
+Open the device camera and detect a face in real time.
+
+Requirements:
+
+* Start camera when the face verification task begins.
+* Detect if a human face is present in the frame.
+* Display a message if no face is detected:
+
+"No face detected. Please look at the camera."
+
+---
+
+LIVELINESS CHECK USING HEAD ROTATION
+
+Once a face is detected, the system must verify that the user rotates their head.
+
+Instructions displayed to the user:
+
+"Rotate your head left and then right to stop the alarm."
+
+Implementation logic:
+
+1. Track the **nose landmark position** or head orientation angle.
+2. Record the starting position.
+3. Detect when the head turns left.
+4. Detect when the head turns right.
+
+Conditions for success:
+
+* Head rotation must pass both directions.
+* Movement must exceed a small threshold angle to avoid false detection.
+
+Example logic:
+
+Start position detected
+↓
+Head turns left (angle threshold reached)
+↓
+Head turns right (angle threshold reached)
+↓
+Liveliness verified
+
+If both movements are detected, the verification succeeds.
+
+---
+
+ALARM STOP CONDITION
+
+The alarm must stop only when:
+
+Face detected
+AND
+Head rotated left
+AND
+Head rotated right
+
+If the movement is not completed, the alarm continues.
+
+---
+
+USER INTERFACE
+
+While verification is active show:
+
+Camera preview
+Instruction text
+
+Example:
+
+"Rotate your head left and right to stop the alarm."
+
+Show a progress indicator such as:
+
+Step 1: Face detected
+Step 2: Turn head left
+Step 3: Turn head right
+
+Mark each step as completed.
+
+---
+
+FAILURE HANDLING
+
+If no face is detected or head movement is not detected within 10 seconds:
+
+Show message:
+
+"Face verification failed. Please try again."
+
+Restart the detection process.
+
+---
+
+EXPECTED RESULT
+
+When the alarm rings and the Face Verification task is selected:
+
+1. Camera opens.
+2. Face is detected.
+3. User rotates head left and right.
+4. Liveliness is verified.
+5. Alarm stops only after successful verification.
