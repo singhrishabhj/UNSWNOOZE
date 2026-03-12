@@ -1,25 +1,22 @@
 import { Feather } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-// DateTimePicker is only used on iOS/Android — web falls back to a custom input
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
-import { Alarm, RepeatDay, SoundType, WakeTask, useApp } from '@/context/AppContext';
+import { RepeatDay, SoundType, WakeTask, useApp } from '@/context/AppContext';
 import { useTheme } from '@/hooks/useTheme';
+import { TimePicker } from '@/components/TimePicker';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -46,7 +43,6 @@ export default function CreateAlarmScreen() {
   const [repeatDays, setRepeatDays] = useState<RepeatDay[]>(editAlarm?.repeatDays ?? []);
   const [wakeTask, setWakeTask] = useState<WakeTask>(editAlarm?.wakeTask ?? 'face');
   const [soundType, setSoundType] = useState<SoundType>(editAlarm?.soundType ?? 'standard');
-  const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
 
   const bg = isDark ? colors.background : colors.background;
   const cardBg = isDark ? colors.surface : colors.card;
@@ -58,14 +54,6 @@ export default function CreateAlarmScreen() {
     setRepeatDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
-  };
-
-  const formatTime = () => {
-    const h = time.getHours();
-    const m = time.getMinutes().toString().padStart(2, '0');
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const hours = (h % 12 || 12).toString();
-    return `${hours}:${m} ${ampm}`;
   };
 
   const handleSave = () => {
@@ -105,45 +93,8 @@ export default function CreateAlarmScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.timeCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
-          <Text style={[styles.timeDisplay, { color: isDark ? '#fff' : '#111' }]}>{formatTime()}</Text>
-          {Platform.OS !== 'web' && (showPicker || Platform.OS === 'ios') && (
-            <DateTimePicker
-              value={time}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(_, d) => d && setTime(d)}
-              themeVariant={isDark ? 'dark' : 'light'}
-              style={{ alignSelf: 'center' }}
-            />
-          )}
-          {Platform.OS === 'android' && (
-            <Pressable
-              onPress={() => setShowPicker(true)}
-              style={[styles.changeTimeBtn, { borderColor: Colors.primary }]}
-            >
-              <Text style={[styles.changeTimeBtnText, { color: Colors.primary }]}>Change Time</Text>
-            </Pressable>
-          )}
-          {Platform.OS === 'web' && (
-            <View style={styles.webTimeRow}>
-              {[...Array(12)].map((_, i) => i + 1).map(h => (
-                <Pressable
-                  key={h}
-                  onPress={() => {
-                    const d = new Date(time);
-                    const isPM = time.getHours() >= 12;
-                    d.setHours(isPM ? h % 12 + 12 : h % 12, time.getMinutes());
-                    setTime(d);
-                  }}
-                  style={[styles.webHourBtn, {
-                    backgroundColor: (time.getHours() % 12 || 12) === h ? Colors.primary : (isDark ? colors.surfaceElevated : colors.surface),
-                  }]}
-                >
-                  <Text style={{ color: (time.getHours() % 12 || 12) === h ? '#fff' : colors.textSecondary, fontSize: 12, fontFamily: 'Inter_500Medium' }}>{h}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
+          <Text style={[styles.timeSectionLabel, { color: colors.textSecondary }]}>SET ALARM TIME</Text>
+          <TimePicker value={time} onChange={setTime} />
         </View>
 
         <View style={[styles.card, { backgroundColor: cardBg, borderColor: colors.border }]}>
@@ -282,27 +233,18 @@ const styles = StyleSheet.create({
   timeCard: {
     borderRadius: 24,
     borderWidth: 1,
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
     alignItems: 'center',
     marginBottom: 16,
-    gap: 8,
+    gap: 16,
   },
-  timeDisplay: {
-    fontSize: 52,
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -2,
-    includeFontPadding: false,
-  },
-  changeTimeBtn: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    marginTop: 8,
-  },
-  changeTimeBtnText: {
+  timeSectionLabel: {
+    fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
+    letterSpacing: 1.5,
+    alignSelf: 'flex-start',
   },
   card: {
     borderRadius: 20,
@@ -361,19 +303,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     lineHeight: 18,
-  },
-  webTimeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  webHourBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
