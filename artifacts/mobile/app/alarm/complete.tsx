@@ -135,11 +135,6 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   checkCircle: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    elevation: 16,
   },
   checkGrad: {
     width: 100,

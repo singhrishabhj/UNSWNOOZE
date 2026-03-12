@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -20,6 +21,18 @@ import { useAlarmScheduler } from "@/hooks/useAlarmScheduler";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+// Inject global web styles once — removes browser focus outlines and box-shadows on buttons
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    *:focus { outline: none !important; }
+    *:focus-visible { outline: none !important; box-shadow: none !important; }
+    button { box-shadow: none !important; }
+    [role="button"] { box-shadow: none !important; }
+  `;
+  document.head.appendChild(style);
+}
 
 function AlarmScheduler() {
   useAlarmScheduler();

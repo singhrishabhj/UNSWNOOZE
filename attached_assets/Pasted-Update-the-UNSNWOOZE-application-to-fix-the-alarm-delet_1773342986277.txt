@@ -1,0 +1,120 @@
+Update the UNSNWOOZE application to fix the alarm deletion issue and remove the unwanted button shadow styling that is appearing across the interface.
+
+---
+
+FIX ALARM DELETION FUNCTIONALITY
+
+The delete button currently appears in the UI but does not remove alarms. Implement a fully working deletion system.
+
+Requirements:
+
+Each alarm must have a unique ID.
+
+When the delete button is clicked:
+
+1. Capture the correct alarm ID.
+2. Remove the alarm from the alarms list in application state.
+3. Remove the alarm from local storage or database.
+4. Cancel any scheduled trigger associated with that alarm.
+5. Immediately update the UI so the alarm disappears without refreshing the page.
+
+Implementation logic:
+
+Find the alarm by its ID
+Remove it from the alarms array
+Update the stored alarms data
+Re-render the alarm list
+
+---
+
+DELETE CONFIRMATION
+
+Before deleting an alarm, show a confirmation dialog.
+
+Message:
+
+Delete this alarm?
+
+Buttons:
+
+Cancel
+Delete
+
+If the user confirms, permanently remove the alarm.
+
+---
+
+VERIFY DATA STORAGE
+
+Ensure deleted alarms are removed from the storage system being used.
+
+Check:
+
+Local storage
+Supabase
+Firebase
+
+After refreshing the page, deleted alarms must not reappear.
+
+---
+
+REMOVE UNWANTED BUTTON SHADOW
+
+Currently every button has a visible shadow that appears like a box around the button. This does not match the minimal premium design.
+
+Update the button styles.
+
+Requirements:
+
+Remove heavy or boxed shadows from all buttons.
+
+Replace with one of the following minimal styles:
+
+Option 1
+No shadow at all
+
+Option 2
+Very subtle soft shadow
+
+Example style guidance:
+
+Avoid strong shadows such as large drop shadows or box outlines.
+
+Buttons should look clean, flat, and modern.
+
+---
+
+FOCUS STATE FIX
+
+When buttons are clicked or focused, ensure there is no default browser outline box that looks like a thick border.
+
+Use a subtle focus style instead.
+
+Example behavior:
+
+Smooth color change or slight opacity change when pressed.
+
+---
+
+BUTTON CONSISTENCY
+
+Apply the same button styling rules across all screens including:
+
+Add Alarm button
+Complete Wake-Up Task button
+Delete button
+Settings buttons
+Toggle controls
+
+All buttons must follow the same clean minimal design.
+
+---
+
+EXPECTED RESULT
+
+After these fixes:
+
+The delete button successfully removes alarms from the system.
+Deleted alarms do not return after refresh.
+All buttons have clean minimal styling with no heavy box shadows.
+The interface feels visually consistent and premium.

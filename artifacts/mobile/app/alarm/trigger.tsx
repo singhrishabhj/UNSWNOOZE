@@ -265,11 +265,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   buttonWrapper: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    elevation: 16,
     marginBottom: 20,
     width: '100%',
   },

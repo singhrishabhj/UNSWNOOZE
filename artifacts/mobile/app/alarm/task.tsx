@@ -225,11 +225,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 18,
     borderRadius: 24,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
   },
   actionBtnText: {
     fontSize: 17,

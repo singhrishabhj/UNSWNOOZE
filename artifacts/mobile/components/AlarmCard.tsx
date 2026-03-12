@@ -45,6 +45,14 @@ export function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps
 
   const handleDeletePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS === 'web') {
+      // window.confirm is reliable on web; Alert.alert uses it internally but
+      // callback mapping can be inconsistent across RN-web versions.
+      if (typeof window !== 'undefined' && window.confirm('Delete this alarm?')) {
+        onDelete();
+      }
+      return;
+    }
     Alert.alert('Delete Alarm', 'Delete this alarm?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: onDelete },
