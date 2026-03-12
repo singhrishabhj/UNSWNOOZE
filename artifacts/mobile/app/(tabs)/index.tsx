@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useRef } from 'react';
 import {
-  Alert,
   Animated,
   Platform,
   Pressable,
@@ -30,20 +29,6 @@ export default function HomeScreen() {
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top + 16;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
-
-  const handleDelete = (id: string) => {
-    Alert.alert('Delete Alarm', 'Remove this alarm?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteAlarm(id);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        },
-      },
-    ]);
-  };
 
   const handleFabPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -114,7 +99,7 @@ export default function HomeScreen() {
               alarm={alarm}
               onToggle={() => toggleAlarm(alarm.id)}
               onPress={() => router.push({ pathname: '/alarm/create', params: { editId: alarm.id } })}
-              onDelete={() => handleDelete(alarm.id)}
+              onDelete={() => deleteAlarm(alarm.id)}
             />
           ))
         )}

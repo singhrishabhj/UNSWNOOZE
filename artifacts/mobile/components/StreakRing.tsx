@@ -38,44 +38,52 @@ export function StreakRing({ currentStreak, bestStreak, targetStreak = 30 }: Str
 
   const trackColor = isDark ? Colors.dark.surfaceElevated : Colors.light.surfaceElevated;
   const nextMilestone = [3, 7, 15, 30].find(m => m > currentStreak) ?? 30;
+  const daysToNext = nextMilestone - currentStreak;
 
   return (
     <View style={styles.container}>
-      <Svg width={size} height={size} style={styles.svg}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={trackColor}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        <AnimatedCircle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={Colors.primary}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          transform={`rotate(-90, ${size / 2}, ${size / 2})`}
-        />
-      </Svg>
-      <View style={styles.innerContent}>
-        <Text style={[styles.streakNumber, { color: isDark ? '#fff' : '#111' }]}>{currentStreak}</Text>
-        <Text style={[styles.streakLabel, { color: Colors.primary }]}>Day Streak</Text>
+      <View style={[styles.ringWrapper, { width: size, height: size }]}>
+        <Svg width={size} height={size}>
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={trackColor}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+          />
+          <AnimatedCircle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={Colors.primary}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            transform={`rotate(-90, ${size / 2}, ${size / 2})`}
+          />
+        </Svg>
+        <View style={styles.innerContent}>
+          <Text style={[styles.streakNumber, { color: isDark ? '#fff' : '#111' }]}>
+            {currentStreak}
+          </Text>
+          <Text style={[styles.streakLabel, { color: Colors.primary }]}>
+            Day Streak
+          </Text>
+        </View>
       </View>
-      <View style={styles.meta}>
+
+      <View style={styles.metaRow}>
         <View style={styles.metaItem}>
           <Text style={[styles.metaValue, { color: isDark ? '#fff' : '#111' }]}>{bestStreak}</Text>
-          <Text style={[styles.metaLabel, { color: isDark ? colors.textSecondary : colors.textSecondary }]}>Best</Text>
+          <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>Best</Text>
         </View>
-        <View style={[styles.metaDivider, { backgroundColor: isDark ? colors.border : colors.border }]} />
+        <View style={[styles.metaDivider, { backgroundColor: colors.border }]} />
         <View style={styles.metaItem}>
-          <Text style={[styles.metaValue, { color: isDark ? '#fff' : '#111' }]}>{nextMilestone - currentStreak}</Text>
-          <Text style={[styles.metaLabel, { color: isDark ? colors.textSecondary : colors.textSecondary }]}>To next</Text>
+          <Text style={[styles.metaValue, { color: isDark ? '#fff' : '#111' }]}>{daysToNext}</Text>
+          <Text style={[styles.metaLabel, { color: colors.textSecondary }]}>To next</Text>
         </View>
       </View>
     </View>
@@ -85,17 +93,16 @@ export function StreakRing({ currentStreak, bestStreak, targetStreak = 30 }: Str
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    gap: 16,
+    gap: 20,
+    width: '100%',
   },
-  svg: {
+  ringWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
   },
   innerContent: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
@@ -105,17 +112,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     letterSpacing: -1,
     includeFontPadding: false,
+    lineHeight: 44,
   },
   streakLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  meta: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
+    gap: 28,
   },
   metaItem: {
     alignItems: 'center',
@@ -124,6 +132,7 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 22,
     fontFamily: 'Inter_700Bold',
+    letterSpacing: -0.5,
   },
   metaLabel: {
     fontSize: 12,
@@ -132,6 +141,6 @@ const styles = StyleSheet.create({
   metaDivider: {
     width: 1,
     height: 28,
-    opacity: 0.4,
+    opacity: 0.35,
   },
 });

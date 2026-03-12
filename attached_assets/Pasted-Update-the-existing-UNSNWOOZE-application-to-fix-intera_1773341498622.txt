@@ -1,0 +1,121 @@
+Update the existing **UNSNWOOZE** application to fix interaction issues and add missing alarm management features.
+
+Focus on correcting the toggle behavior, fixing alignment in the streak section, and implementing an alarm deletion feature.
+
+---
+
+FIX ALARM TOGGLE BEHAVIOR ON HOME PAGE
+
+Currently the toggle button used to enable or disable an alarm is incorrectly redirecting the user to the alarm detail page.
+
+Correct this behavior.
+
+Requirements:
+
+* The toggle must **only enable or disable the alarm**.
+* Toggling the switch must **not trigger navigation** to the alarm page.
+* Prevent click event propagation from the toggle to the parent alarm card.
+
+Implementation guidance:
+
+Use event handling such as stopping event propagation on the toggle element so the parent container click handler does not activate.
+
+Correct behavior:
+
+* Tapping the alarm card → opens the alarm edit page
+* Tapping the toggle switch → only turns the alarm on or off
+
+---
+
+FIX STREAK SECTION ALIGNMENT
+
+The streak display currently shows text such as:
+
+"1 Day Streak"
+
+but the layout is not aligned properly.
+
+Fix the alignment so the streak component looks clean and centered.
+
+Requirements:
+
+* Center the streak progress ring horizontally
+* Center the streak number inside the ring
+* Ensure the text "Day Streak" sits properly below or inside the ring
+* Maintain equal padding around the streak component
+* Ensure the text does not shift or wrap incorrectly on smaller screens
+
+Example layout:
+
+Center aligned circular streak ring
+Inside the ring show:
+
+1
+Day Streak
+
+Below the ring display:
+
+Best Streak: X Days
+
+Ensure proper spacing between all elements.
+
+---
+
+ADD ALARM DELETION FEATURE
+
+Currently users cannot delete alarms.
+
+Add a delete option to allow users to remove alarms from the list.
+
+Requirements:
+
+Each alarm card should include a delete option.
+
+Possible UI implementations:
+
+Option 1 (recommended minimal UI):
+Swipe left on alarm card → reveal Delete button
+
+Option 2:
+Three-dot menu on alarm card → Delete option
+
+Option 3:
+Delete icon inside the alarm edit screen
+
+Recommended behavior:
+
+* Tapping Delete asks for confirmation
+* Confirmation message example:
+
+"Delete this alarm?"
+
+Buttons:
+Cancel
+Delete
+
+If confirmed:
+
+* Remove alarm from database
+* Immediately update alarm list on dashboard
+* Ensure deleted alarms no longer trigger
+
+---
+
+DATA CONSISTENCY
+
+When an alarm is deleted:
+
+* Remove it from local state
+* Remove it from stored database
+* Cancel any scheduled trigger related to that alarm
+
+---
+
+FINAL EXPECTED RESULT
+
+After these fixes:
+
+* The toggle switch only enables or disables alarms without navigating
+* The streak section appears centered and properly aligned
+* Users can easily delete alarms from the application
+* The alarm list updates instantly after deletion

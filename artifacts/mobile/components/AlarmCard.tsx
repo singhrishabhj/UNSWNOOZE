@@ -1,7 +1,16 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { Colors } from '@/constants/colors';
 import { Alarm } from '@/context/AppContext';
 import { useTheme } from '@/hooks/useTheme';
@@ -36,18 +45,26 @@ export function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps
     Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 100 }).start();
   };
 
+  const handleDeletePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Delete Alarm',
+      'Delete this alarm?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: onDelete },
+      ]
+    );
+  };
+
   const cardBg = isDark ? colors.surface : colors.card;
   const borderColor = alarm.enabled ? 'rgba(255, 107, 0, 0.2)' : (isDark ? colors.border : colors.border);
   const timeColor = alarm.enabled ? (isDark ? '#fff' : '#111') : (isDark ? colors.textMuted : colors.textMuted);
 
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <Pressable
         onPress={onPress}
-        onLongPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          onDelete();
-        }}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         style={[styles.card, {
@@ -61,7 +78,7 @@ export function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps
             <Text style={[styles.time, { color: timeColor }]}>{time}</Text>
             <Text style={[styles.ampm, { color: alarm.enabled ? Colors.primary : colors.textMuted }]}>{ampm}</Text>
           </View>
-          <Text style={[styles.title, { color: isDark ? colors.textSecondary : colors.textSecondary }]}>{alarm.title}</Text>
+          <Text style={[styles.title, { color: colors.textSecondary }]}>{alarm.title}</Text>
           <View style={styles.tagsRow}>
             <View style={[styles.tag, { backgroundColor: isDark ? colors.surfaceElevated : colors.surface }]}>
               <Feather
@@ -100,16 +117,39 @@ export function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps
             </View>
           )}
         </View>
-        <Switch
-          value={alarm.enabled}
-          onValueChange={() => {
-            Haptics.selectionAsync();
-            onToggle();
-          }}
-          trackColor={{ false: isDark ? colors.surfaceElevated : colors.surfaceElevated, true: 'rgba(255, 107, 0, 0.4)' }}
-          thumbColor={alarm.enabled ? Colors.primary : (isDark ? '#555' : '#ccc')}
-          ios_backgroundColor={isDark ? colors.surfaceElevated : colors.surfaceElevated}
-        />
+
+        <View style={styles.right}>
+          <View
+            onStartShouldSetResponder={() => true}
+            onTouchEnd={e => e.stopPropagation()}
+          >
+            <Switch
+              value={alarm.enabled}
+              onValueChange={() => {
+                Haptics.selectionAsync();
+                onToggle();
+              }}
+              trackColor={{ false: isDark ? colors.surfaceElevated : colors.surfaceElevated, true: 'rgba(255, 107, 0, 0.4)' }}
+              thumbColor={alarm.enabled ? Colors.primary : (isDark ? '#555' : '#ccc')}
+              ios_backgroundColor={isDark ? colors.surfaceElevated : colors.surfaceElevated}
+            />
+          </View>
+
+          <Pressable
+            onPress={handleDeletePress}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.deleteBtn,
+              {
+                backgroundColor: pressed
+                  ? 'rgba(255,59,48,0.15)'
+                  : (isDark ? colors.surfaceElevated : colors.surface),
+              },
+            ]}
+          >
+            <Feather name="trash-2" size={14} color={isDark ? colors.textMuted : colors.textMuted} />
+          </Pressable>
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -128,10 +168,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 4,
+    gap: 12,
   },
   left: {
     flex: 1,
     gap: 6,
+  },
+  right: {
+    alignItems: 'center',
+    gap: 10,
   },
   timeRow: {
     flexDirection: 'row',
@@ -188,5 +233,12 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 10,
     fontFamily: 'Inter_600SemiBold',
+  },
+  deleteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
