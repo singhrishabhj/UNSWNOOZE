@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Platform,
@@ -18,8 +18,111 @@ import { AlarmCard } from '@/components/AlarmCard';
 import { DigitalClock } from '@/components/DigitalClock';
 import { StreakRing } from '@/components/StreakRing';
 import { Colors } from '@/constants/colors';
-import { useApp } from '@/context/AppContext';
+import { Alarm, useApp } from '@/context/AppContext';
 import { useTheme } from '@/hooks/useTheme';
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function getNextAlarm(alarms: Alarm[]): { alarm: Alarm; nextMs: number } | null {
+  const enabled = alarms.filter(a => a.enabled);
+  if (!enabled.length) return null;
+  const now = Date.now();
+  const candidates = enabled.map(alarm => {
+    const [h, m] = alarm.time.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    if (d.getTime() <= now) d.setDate(d.getDate() + 1);
+    return { alarm, nextMs: d.getTime() };
+  });
+  candidates.sort((a, b) => a.nextMs - b.nextMs);
+  return candidates[0];
+}
+
+function formatTime12(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function formatCountdown(ms: number): string {
+  const totalMins = Math.ceil(ms / 60000);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  if (h === 0) return `in ${m}m`;
+  if (m === 0) return `in ${h}h`;
+  return `in ${h}h ${m}m`;
+}
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+// ─── NextAlarmBanner ──────────────────────────────────────────────────────────
+
+function NextAlarmBanner({ alarms }: { alarms: Alarm[] }) {
+  const { isDark, colors } = useTheme();
+  const [, forceUpdate] = useState(0);
+
+  // Refresh countdown every 30s
+  useEffect(() => {
+    const id = setInterval(() => forceUpdate(n => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const next = getNextAlarm(alarms);
+
+  if (!next) {
+    return (
+      <View style={[styles.nextAlarmCard, {
+        backgroundColor: isDark ? colors.surface : colors.card,
+        borderColor: colors.border,
+      }]}>
+        <Feather name="bell-off" size={20} color={colors.textMuted} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.nextAlarmLabel, { color: colors.textMuted }]}>No active alarms</Text>
+          <Text style={[styles.nextAlarmSub, { color: colors.textMuted }]}>
+            Tap + to create your first alarm
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const countdown = formatCountdown(next.nextMs - Date.now());
+
+  return (
+    <View style={[styles.nextAlarmCard, {
+      backgroundColor: isDark ? colors.surface : colors.card,
+      borderColor: colors.border,
+    }]}>
+      <View style={styles.nextAlarmIconWrap}>
+        <Feather name="bell" size={18} color={Colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.nextAlarmLabel, { color: colors.textSecondary }]}>Next alarm</Text>
+        <View style={styles.nextAlarmRow}>
+          <Text style={[styles.nextAlarmTime, { color: isDark ? '#fff' : '#111' }]}>
+            {formatTime12(next.alarm.time)}
+          </Text>
+          <Text style={[styles.nextAlarmCountdown, { color: Colors.primary }]}>
+            {countdown}
+          </Text>
+        </View>
+        {next.alarm.title !== 'Wake Up' && (
+          <Text style={[styles.nextAlarmTitle, { color: colors.textMuted }]}>
+            {next.alarm.title}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ─── HomeScreen ───────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -35,8 +138,11 @@ export default function HomeScreen() {
     router.push('/alarm/create');
   };
 
-  const bg = isDark ? colors.background : colors.background;
+  const bg = colors.background;
   const cardBg = isDark ? colors.surface : colors.card;
+
+  // Discipline score: 5 pts per streak day, capped at 100
+  const disciplineScore = Math.min(100, data.currentStreak * 5);
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
@@ -45,28 +151,52 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
       >
-      <View style={[styles.inner, { paddingTop: topPad, paddingBottom: bottomPad + 100 }]}>
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: colors.textSecondary }]}>Good morning</Text>
-            <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#111' }]}>UNSNWOOZE</Text>
+        <View style={[styles.inner, { paddingTop: topPad, paddingBottom: bottomPad + 100 }]}>
+
+          {/* Header */}
+          <View style={styles.header}>
+            <View>
+              <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+                {getGreeting()}
+              </Text>
+              <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#111' }]}>
+                UNSNWOOZE
+              </Text>
+            </View>
+            {disciplineScore > 0 && (
+              <View style={[styles.scorePill, { backgroundColor: 'rgba(255,107,0,0.12)', borderColor: 'rgba(255,107,0,0.25)' }]}>
+                <Feather name="award" size={12} color={Colors.primary} />
+                <Text style={styles.scoreText}>{disciplineScore}</Text>
+              </View>
+            )}
           </View>
-        </View>
 
-        <View style={[styles.clockCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : colors.border }]}>
-          <DigitalClock large />
-        </View>
-
-        <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>Your Streak</Text>
-          <View style={styles.streakCenter}>
-            <StreakRing currentStreak={data.currentStreak} bestStreak={data.bestStreak} />
+          {/* Clock */}
+          <View style={[styles.clockCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
+            <DigitalClock large />
           </View>
-        </View>
 
-        {achievements.some(a => a.unlocked) && (
-          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: isDark ? colors.border : colors.border }]}>
-            <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>Achievements</Text>
+          {/* Next Alarm Banner */}
+          <NextAlarmBanner alarms={data.alarms} />
+
+          {/* Streak */}
+          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>Your Streak</Text>
+            <View style={styles.streakCenter}>
+              <StreakRing currentStreak={data.currentStreak} bestStreak={data.bestStreak} />
+            </View>
+          </View>
+
+          {/* Achievements — always visible */}
+          <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
+            <View style={styles.achievementsHeader}>
+              <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>
+                Achievements
+              </Text>
+              <Text style={[styles.achievementsSub, { color: colors.textMuted }]}>
+                {achievements.filter(a => a.unlocked).length}/{achievements.length} unlocked
+              </Text>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
               <View style={styles.badgesRow}>
                 {achievements.map(a => (
@@ -75,37 +205,38 @@ export default function HomeScreen() {
               </View>
             </ScrollView>
           </View>
-        )}
 
-        <View style={styles.alarmsHeader}>
-          <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>Alarms</Text>
-          <Text style={[styles.alarmsCount, { color: colors.textMuted }]}>
-            {data.alarms.filter(a => a.enabled).length} active
-          </Text>
-        </View>
-
-        {data.alarms.length === 0 ? (
-          <View style={[styles.emptyState, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <Feather name="bell-off" size={36} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: isDark ? '#fff' : '#111' }]}>No alarms set</Text>
-            <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
-              Tap the + button to create your first alarm
+          {/* Alarms list */}
+          <View style={styles.alarmsHeader}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>Alarms</Text>
+            <Text style={[styles.alarmsCount, { color: colors.textMuted }]}>
+              {data.alarms.filter(a => a.enabled).length} active
             </Text>
           </View>
-        ) : (
-          data.alarms.map(alarm => (
-            <AlarmCard
-              key={alarm.id}
-              alarm={alarm}
-              onToggle={() => toggleAlarm(alarm.id)}
-              onPress={() => router.push({ pathname: '/alarm/create', params: { editId: alarm.id } })}
-              onDelete={() => deleteAlarm(alarm.id)}
-            />
-          ))
-        )}
-      </View>
+
+          {data.alarms.length === 0 ? (
+            <View style={[styles.emptyState, { backgroundColor: cardBg, borderColor: colors.border }]}>
+              <Feather name="bell-off" size={36} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: isDark ? '#fff' : '#111' }]}>No alarms set</Text>
+              <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
+                Tap the + button to create your first alarm
+              </Text>
+            </View>
+          ) : (
+            data.alarms.map(alarm => (
+              <AlarmCard
+                key={alarm.id}
+                alarm={alarm}
+                onToggle={() => toggleAlarm(alarm.id)}
+                onPress={() => router.push({ pathname: '/alarm/create', params: { editId: alarm.id } })}
+                onDelete={() => deleteAlarm(alarm.id)}
+              />
+            ))
+          )}
+        </View>
       </ScrollView>
 
+      {/* FAB */}
       <Pressable
         onPress={handleFabPress}
         onPressIn={() => Animated.spring(fabScale, { toValue: 0.92, useNativeDriver: true, tension: 100 }).start()}
@@ -127,19 +258,19 @@ export default function HomeScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    alignItems: 'center',
-  },
+  container: { flex: 1 },
+  scrollContent: { alignItems: 'center' },
   inner: {
     width: '100%',
     maxWidth: 480,
     paddingHorizontal: 20,
     alignSelf: 'center',
   },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -157,36 +288,113 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     letterSpacing: -0.5,
   },
+  scorePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  scoreText: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.primary,
+  },
+
+  // Clock
   clockCard: {
     borderRadius: 24,
     borderWidth: 1,
     padding: 24,
-    marginBottom: 16,
+    marginBottom: 12,
     alignItems: 'center',
   },
+
+  // Next alarm banner
+  nextAlarmCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  nextAlarmIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,107,0,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextAlarmLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  nextAlarmRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+  },
+  nextAlarmTime: {
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: -0.5,
+  },
+  nextAlarmCountdown: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  nextAlarmTitle: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    marginTop: 2,
+  },
+  nextAlarmSub: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+  },
+
+  // Cards
   sectionCard: {
     borderRadius: 24,
     borderWidth: 1,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 17,
     fontFamily: 'Inter_700Bold',
-    marginBottom: 16,
     letterSpacing: -0.3,
   },
-  streakCenter: {
+  streakCenter: { alignItems: 'center', marginTop: 4 },
+
+  // Achievements
+  achievementsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  badgesScroll: {
-    marginTop: -4,
+  achievementsSub: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
   },
+  badgesScroll: { marginTop: -4 },
   badgesRow: {
     flexDirection: 'row',
     gap: 10,
     paddingBottom: 4,
   },
+
+  // Alarms
   alarmsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -215,6 +423,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+
+  // FAB
   fabContainer: {
     position: 'absolute',
     right: 24,

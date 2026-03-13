@@ -24,15 +24,24 @@ const MOTIVATIONAL = [
   'The morning belongs to those who earn it.',
 ];
 
+const SNOOZE_SECONDS = 5 * 60;
+
 export default function AlarmTriggerScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const { alarmId } = useLocalSearchParams<{ alarmId: string }>();
-  const { data } = useApp();
+  const { data, recordSnooze } = useApp();
 
   const alarm = data.alarms.find(a => a.id === alarmId);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [quote] = useState(() => MOTIVATIONAL[Math.floor(Math.random() * MOTIVATIONAL.length)]);
+
+  // Snooze state
+  const [snoozed, setSnoozed] = useState(false);
+  const [snoozeUsed, setSnoozeUsed] = useState(false);
+  const [snoozeCountdown, setSnoozeCountdown] = useState(SNOOZE_SECONDS);
+  const snoozeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const speechRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -76,8 +85,7 @@ export default function AlarmTriggerScreen() {
 
       ringPattern();
       beepIntervalRef.current = setInterval(ringPattern, 1400);
-    } catch (e) {
-    }
+    } catch (e) {}
   }, []);
 
   const stopStandardAlarm = useCallback(() => {
@@ -113,6 +121,21 @@ export default function AlarmTriggerScreen() {
     }
   }, []);
 
+  const startAlarm = useCallback(() => {
+    if (Platform.OS === 'web') {
+      if (alarm?.soundType === 'voice' && alarm?.title) {
+        startVoiceAlarm(alarm.title);
+      } else {
+        startStandardAlarm();
+      }
+    }
+  }, [alarm, startVoiceAlarm, startStandardAlarm]);
+
+  const stopAlarm = useCallback(() => {
+    stopVoiceAlarm();
+    stopStandardAlarm();
+  }, [stopVoiceAlarm, stopStandardAlarm]);
+
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -122,27 +145,48 @@ export default function AlarmTriggerScreen() {
     ).start();
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-
-    if (Platform.OS === 'web') {
-      if (alarm?.soundType === 'voice' && alarm?.title) {
-        startVoiceAlarm(alarm.title);
-      } else {
-        startStandardAlarm();
-      }
-    }
+    startAlarm();
 
     return () => {
-      stopVoiceAlarm();
-      stopStandardAlarm();
+      stopAlarm();
+      if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
     };
   }, []);
 
+  const handleSnooze = () => {
+    if (snoozeUsed || snoozed) return;
+    recordSnooze();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSnoozed(true);
+    setSnoozeUsed(true);
+    stopAlarm();
+
+    let remaining = SNOOZE_SECONDS;
+    setSnoozeCountdown(remaining);
+
+    snoozeTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      setSnoozeCountdown(remaining);
+      if (remaining <= 0) {
+        clearInterval(snoozeTimerRef.current!);
+        snoozeTimerRef.current = null;
+        setSnoozed(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        startAlarm();
+      }
+    }, 1000);
+  };
+
   const handleCompleteTask = () => {
-    stopVoiceAlarm();
-    stopStandardAlarm();
+    if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
+    stopAlarm();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.replace({ pathname: '/alarm/task', params: { alarmId } });
   };
+
+  const snoozeMinutes = Math.floor(snoozeCountdown / 60);
+  const snoozeSeconds = snoozeCountdown % 60;
+  const snoozeLabel = `${snoozeMinutes}:${String(snoozeSeconds).padStart(2, '0')}`;
 
   return (
     <LinearGradient
@@ -170,11 +214,14 @@ export default function AlarmTriggerScreen() {
           ) : (
             <View style={styles.soundIndicator}>
               <Feather name="volume-2" size={13} color={Colors.primary} />
-              <Text style={styles.soundText}>Standard alarm ringing</Text>
+              <Text style={styles.soundText}>
+                {snoozed ? 'Alarm snoozed' : 'Standard alarm ringing'}
+              </Text>
             </View>
           )}
         </View>
 
+        {/* Primary wake-up button */}
         <Animated.View style={[styles.buttonWrapper, { transform: [{ scale: pulseAnim }] }]}>
           <Pressable
             onPress={handleCompleteTask}
@@ -192,6 +239,25 @@ export default function AlarmTriggerScreen() {
             </LinearGradient>
           </Pressable>
         </Animated.View>
+
+        {/* Snooze row — shows button or countdown */}
+        <View style={styles.snoozeRow}>
+          {snoozed ? (
+            <View style={styles.snoozeCountdownPill}>
+              <Feather name="clock" size={13} color="rgba(255,255,255,0.4)" />
+              <Text style={styles.snoozeCountdownText}>
+                Alarm restarts in {snoozeLabel}
+              </Text>
+            </View>
+          ) : snoozeUsed ? (
+            <Text style={styles.snoozeUsedText}>Snooze used — complete the task</Text>
+          ) : (
+            <Pressable onPress={handleSnooze} style={styles.snoozeBtn}>
+              <Feather name="moon" size={14} color="rgba(255,255,255,0.45)" />
+              <Text style={styles.snoozeBtnText}>Snooze · 5 min (1× only)</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
     </LinearGradient>
   );
@@ -265,7 +331,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   buttonWrapper: {
-    marginBottom: 20,
     width: '100%',
   },
   wakeBtn: {
@@ -284,5 +349,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     color: 'rgba(255,255,255,0.75)',
+  },
+  snoozeRow: {
+    alignItems: 'center',
+    marginBottom: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  snoozeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  snoozeBtnText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: 'rgba(255,255,255,0.45)',
+  },
+  snoozeCountdownPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  snoozeCountdownText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: 'rgba(255,255,255,0.4)',
+  },
+  snoozeUsedText: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,107,0,0.6)',
   },
 });

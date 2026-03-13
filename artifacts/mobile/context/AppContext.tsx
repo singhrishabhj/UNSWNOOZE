@@ -22,6 +22,7 @@ export interface Achievement {
   description: string;
   icon: string;
   requiredStreak: number;
+  requiredWakeUps?: number;
   unlocked: boolean;
 }
 
@@ -29,6 +30,8 @@ export interface AppData {
   alarms: Alarm[];
   currentStreak: number;
   bestStreak: number;
+  totalWakeUps: number;
+  totalSnoozes: number;
   lastWakeDate: string | null;
   onboardingComplete: boolean;
   theme: 'light' | 'dark' | 'system';
@@ -36,16 +39,19 @@ export interface AppData {
 }
 
 const ACHIEVEMENTS: Achievement[] = [
-  { id: 'panda', title: 'Sleepy Panda', description: '3-day streak', icon: 'moon', requiredStreak: 3, unlocked: false },
-  { id: 'bird', title: 'Early Bird', description: '7-day streak', icon: 'sunrise', requiredStreak: 7, unlocked: false },
-  { id: 'warrior', title: 'Morning Warrior', description: '15-day streak', icon: 'zap', requiredStreak: 15, unlocked: false },
-  { id: 'master', title: 'Discipline Master', description: '30-day streak', icon: 'award', requiredStreak: 30, unlocked: false },
+  { id: 'first', title: 'First Wake Up', description: 'Complete your first wake-up', icon: 'sun', requiredStreak: 0, requiredWakeUps: 1, unlocked: false },
+  { id: 'streak3', title: '3 Day Streak', description: '3 days in a row', icon: 'trending-up', requiredStreak: 3, unlocked: false },
+  { id: 'bird', title: 'Early Bird', description: '7 days in a row', icon: 'sunrise', requiredStreak: 7, unlocked: false },
+  { id: 'warrior', title: 'Morning Warrior', description: '15 days in a row', icon: 'zap', requiredStreak: 15, unlocked: false },
+  { id: 'master', title: 'Discipline Master', description: '30 days in a row', icon: 'award', requiredStreak: 30, unlocked: false },
 ];
 
 const DEFAULT_DATA: AppData = {
   alarms: [],
   currentStreak: 0,
   bestStreak: 0,
+  totalWakeUps: 0,
+  totalSnoozes: 0,
   lastWakeDate: null,
   onboardingComplete: false,
   theme: 'system',
@@ -60,6 +66,7 @@ interface AppContextType {
   deleteAlarm: (id: string) => void;
   toggleAlarm: (id: string) => void;
   completeWakeUp: () => void;
+  recordSnooze: () => void;
   missAlarm: () => void;
   completeOnboarding: () => void;
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
@@ -83,8 +90,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as AppData;
+        // Migrate old saves that lack new fields
+        if (parsed.totalWakeUps === undefined) parsed.totalWakeUps = 0;
+        if (parsed.totalSnoozes === undefined) parsed.totalSnoozes = 0;
         setData(parsed);
-        updateAchievements(parsed.currentStreak);
+        updateAchievements(parsed.currentStreak, parsed.totalWakeUps);
       }
     } catch (e) {
       console.error('Failed to load data:', e);
@@ -99,10 +109,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateAchievements = (streak: number) => {
+  const updateAchievements = (streak: number, wakeUps: number) => {
     setAchievements(ACHIEVEMENTS.map(a => ({
       ...a,
-      unlocked: streak >= a.requiredStreak,
+      unlocked: a.requiredWakeUps
+        ? wakeUps >= a.requiredWakeUps
+        : streak >= a.requiredStreak,
     })));
   };
 
@@ -110,7 +122,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setData(prev => {
       const next = updater(prev);
       saveData(next);
-      updateAchievements(next.currentStreak);
+      updateAchievements(next.currentStreak, next.totalWakeUps);
       return next;
     });
   }, []);
@@ -155,9 +167,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         currentStreak: newStreak,
         bestStreak: Math.max(prev.bestStreak, newStreak),
+        totalWakeUps: prev.totalWakeUps + 1,
         lastWakeDate: today,
       };
     });
+  }, [update]);
+
+  const recordSnooze = useCallback(() => {
+    update(prev => ({ ...prev, totalSnoozes: prev.totalSnoozes + 1 }));
   }, [update]);
 
   const missAlarm = useCallback(() => {
@@ -188,6 +205,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       deleteAlarm,
       toggleAlarm,
       completeWakeUp,
+      recordSnooze,
       missAlarm,
       completeOnboarding,
       setTheme,
