@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // ─── Confetti ─────────────────────────────────────────────────────────────────
 
@@ -136,6 +137,7 @@ function Confetti() {
 export default function AlarmCompleteScreen() {
   const insets = useSafeAreaInsets();
   const { data } = useApp();
+  const { t, fonts } = useTranslation();
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -284,13 +286,13 @@ export default function AlarmCompleteScreen() {
 
         {/* Headline */}
         <View style={styles.textGroup}>
-          <Text style={styles.title}>Wake Up Completed</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { fontFamily: fonts.bold }]}>{t.wakeUpCompleted}</Text>
+          <Text style={[styles.subtitle, { fontFamily: fonts.regular }]}>
             {currentStreak > 1
-              ? `${currentStreak} day streak — keep going.`
+              ? t.streakDaysContinue(currentStreak)
               : currentStreak === 1
-              ? 'First day down. Build on it.'
-              : 'Great start! Keep going.'}
+              ? t.firstDayDown
+              : t.greatStart}
           </Text>
         </View>
 
@@ -303,16 +305,18 @@ export default function AlarmCompleteScreen() {
             style={[styles.statPill, { transform: [{ scale: streakScaleAnim }] }]}
           >
             <Feather name="trending-up" size={15} color={Colors.primary} />
-            <Text style={styles.statLabel}>Streak</Text>
-            <Text style={styles.statValue}>{displayStreak}d</Text>
+            <Text style={[styles.statLabel, { fontFamily: fonts.medium }]}>{t.streak}</Text>
+            <Text style={[styles.statValue, { fontFamily: fonts.bold }]}>{displayStreak}d</Text>
           </Animated.View>
 
           {/* Score pill with counter */}
           <View style={[styles.statPill, styles.statPillGreen]}>
             <Feather name="award" size={15} color="#00C896" />
-            <Text style={[styles.statLabel, { color: '#00C896' }]}>Discipline</Text>
-            <Text style={[styles.statValue, { color: '#00C896' }]}>
-              +5 → {displayScore}
+            <Text style={[styles.statLabel, { color: '#00C896', fontFamily: fonts.medium }]}>
+              {t.discipline}
+            </Text>
+            <Text style={[styles.statValue, { color: '#00C896', fontFamily: fonts.bold }]}>
+              {t.scoreDisplay(displayScore)}
             </Text>
           </View>
         </Animated.View>

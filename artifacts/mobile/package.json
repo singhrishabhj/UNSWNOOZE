@@ -56,6 +56,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "@expo-google-fonts/noto-sans-devanagari": "^0.4.1",
     "@react-native-community/datetimepicker": "^8.6.0"
   }
 }

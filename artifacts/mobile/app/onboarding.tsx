@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 const SLIDES_COUNT = 4;
 
@@ -58,6 +59,7 @@ function useEntrance(isActive: boolean, delay = 0) {
 function Slide1({ isActive, width }: { isActive: boolean; width: number }) {
   const icon = useEntrance(isActive, 0);
   const text = useEntrance(isActive, 160);
+  const { t, fonts } = useTranslation();
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const ring1 = useRef(new Animated.Value(0.6)).current;
@@ -128,27 +130,22 @@ function Slide1({ isActive, width }: { isActive: boolean; width: number }) {
       <Animated.View
         style={[s.textBlock, { opacity: text.opacity, transform: [{ translateY: text.translateY }] }]}
       >
-        <Text style={s.headline}>Stop Snoozing.</Text>
-        <Text style={s.body}>
-          Most alarms are easy to ignore.{'\n'}UNSNWOOZE makes waking up{'\n'}non-negotiable.
-        </Text>
+        <Text style={[s.headline, { fontFamily: fonts.bold }]}>{t.slide1Title}</Text>
+        <Text style={[s.body, { fontFamily: fonts.regular }]}>{t.slide1Body}</Text>
       </Animated.View>
     </View>
   );
 }
 
 // ─── Slide 2: Prove You're Awake ─────────────────────────────────────────────
-const FEATURES = [
-  { icon: 'camera', label: 'Selfie Check' },
-  { icon: 'trending-up', label: 'Streak Tracking' },
-  { icon: 'award', label: 'Discipline Score' },
-] as const;
+const FEATURES_ICONS = ['camera', 'trending-up', 'award'] as const;
 
 function Slide2({ isActive, width }: { isActive: boolean; width: number }) {
   const text = useEntrance(isActive, 0);
+  const { t, fonts } = useTranslation();
 
   const featureAnims = useRef(
-    FEATURES.map((_, i) => ({
+    FEATURES_ICONS.map(() => ({
       opacity: new Animated.Value(0),
       scale: new Animated.Value(0.7),
     }))
@@ -159,7 +156,7 @@ function Slide2({ isActive, width }: { isActive: boolean; width: number }) {
       featureAnims.forEach(a => { a.opacity.setValue(0); a.scale.setValue(0.7); });
       return;
     }
-    FEATURES.forEach((_, i) => {
+    FEATURES_ICONS.forEach((_, i) => {
       const delay = 160 + i * 120;
       Animated.parallel([
         Animated.timing(featureAnims[i].opacity, {
@@ -172,21 +169,21 @@ function Slide2({ isActive, width }: { isActive: boolean; width: number }) {
     });
   }, [isActive]);
 
+  const featureLabels = [t.selfieCheck, t.streakTracking, t.disciplineScore];
+
   return (
     <View style={[s.slide, { width }]}>
       <Animated.View
         style={[s.textBlock, { opacity: text.opacity, transform: [{ translateY: text.translateY }], marginBottom: 40 }]}
       >
-        <Text style={s.headline}>Prove You're Awake.</Text>
-        <Text style={s.body}>
-          Your alarm stops only after you{'\n'}complete the wake-up challenge.
-        </Text>
+        <Text style={[s.headline, { fontFamily: fonts.bold }]}>{t.slide2Title}</Text>
+        <Text style={[s.body, { fontFamily: fonts.regular }]}>{t.slide2Body}</Text>
       </Animated.View>
 
       <View style={s.featuresRow}>
-        {FEATURES.map((f, i) => (
+        {FEATURES_ICONS.map((icon, i) => (
           <Animated.View
-            key={f.icon}
+            key={icon}
             style={[
               s.featureCard,
               {
@@ -196,9 +193,9 @@ function Slide2({ isActive, width }: { isActive: boolean; width: number }) {
             ]}
           >
             <View style={s.featureIconWrap}>
-              <Feather name={f.icon} size={26} color={Colors.primary} />
+              <Feather name={icon} size={26} color={Colors.primary} />
             </View>
-            <Text style={s.featureLabel}>{f.label}</Text>
+            <Text style={[s.featureLabel, { fontFamily: fonts.medium }]}>{featureLabels[i]}</Text>
           </Animated.View>
         ))}
       </View>
@@ -210,6 +207,7 @@ function Slide2({ isActive, width }: { isActive: boolean; width: number }) {
 function Slide3({ isActive, width }: { isActive: boolean; width: number }) {
   const text = useEntrance(isActive, 0);
   const ring = useEntrance(isActive, 100);
+  const { t, fonts } = useTranslation();
 
   // Animated streak counter 0 → 7
   const streakCount = useRef(new Animated.Value(0)).current;
@@ -257,10 +255,8 @@ function Slide3({ isActive, width }: { isActive: boolean; width: number }) {
       <Animated.View
         style={[s.textBlock, { opacity: text.opacity, transform: [{ translateY: text.translateY }], marginBottom: 36 }]}
       >
-        <Text style={s.headline}>Build Real Discipline.</Text>
-        <Text style={s.body}>
-          Track streaks. Earn achievements.{'\n'}Become someone who wakes up on time.
-        </Text>
+        <Text style={[s.headline, { fontFamily: fonts.bold }]}>{t.slide3Title}</Text>
+        <Text style={[s.body, { fontFamily: fonts.regular }]}>{t.slide3Body}</Text>
       </Animated.View>
 
       {/* Streak counter */}
@@ -270,7 +266,7 @@ function Slide3({ isActive, width }: { isActive: boolean; width: number }) {
         <View style={s.streakRow}>
           <Feather name="zap" size={18} color={Colors.primary} />
           <Text style={s.streakNumber}>{displayStreak}</Text>
-          <Text style={s.streakUnit}>day streak</Text>
+          <Text style={[s.streakUnit, { fontFamily: fonts.regular }]}>{t.dayStreak}</Text>
         </View>
 
         {/* Progress bar */}
@@ -324,6 +320,7 @@ function Slide4({
 }) {
   const brand = useEntrance(isActive, 0);
   const cta = useEntrance(isActive, 300);
+  const { t, fonts } = useTranslation();
 
   return (
     <View style={[s.slide, { width, justifyContent: 'center', gap: 48 }]}>
@@ -345,7 +342,7 @@ function Slide4({
           </LinearGradient>
         </View>
         <Text style={s.brandName}>UNSNWOOZE</Text>
-        <Text style={s.brandTagline}>Wake up like you mean it.</Text>
+        <Text style={[s.brandTagline, { fontFamily: fonts.regular }]}>{t.slide4Tagline}</Text>
       </Animated.View>
 
       {/* CTA */}
@@ -362,11 +359,11 @@ function Slide4({
             end={{ x: 1, y: 1 }}
             style={s.ctaBtn}
           >
-            <Text style={s.ctaBtnText}>Start My First Alarm</Text>
+            <Text style={[s.ctaBtnText, { fontFamily: fonts.semiBold }]}>{t.startAlarm}</Text>
             <Feather name="arrow-right" size={18} color="#fff" />
           </LinearGradient>
         </Pressable>
-        <Text style={s.ctaNote}>No account needed. Free to start.</Text>
+        <Text style={[s.ctaNote, { fontFamily: fonts.regular }]}>{t.noAccountNeeded}</Text>
       </Animated.View>
     </View>
   );
@@ -376,6 +373,7 @@ function Slide4({
 export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const { completeOnboarding } = useApp();
+  const { t, fonts } = useTranslation();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [slideWidth, setSlideWidth] = useState(Dimensions.get('window').width);
@@ -413,7 +411,7 @@ export default function Onboarding() {
           onPress={handleGetStarted}
           style={[s.skipBtn, { top: topPad + 12 }]}
         >
-          <Text style={s.skipText}>Skip</Text>
+          <Text style={[s.skipText, { fontFamily: fonts.medium }]}>{t.skip}</Text>
         </Pressable>
       )}
 

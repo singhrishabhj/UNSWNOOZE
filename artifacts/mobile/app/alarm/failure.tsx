@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function AlarmFailureScreen() {
   const insets = useSafeAreaInsets();
   const { missAlarm } = useApp();
+  const { t, fonts } = useTranslation();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -37,7 +39,6 @@ export default function AlarmFailureScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
-      {/* Subtle red glow */}
       <View style={styles.glow} />
 
       <Animated.View
@@ -46,43 +47,38 @@ export default function AlarmFailureScreen() {
           { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
       >
-        {/* Icon */}
         <Animated.View style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}>
           <Feather name="moon" size={44} color="#FF4444" />
         </Animated.View>
 
-        {/* Messages */}
         <View style={styles.textBlock}>
-          <Text style={styles.headline}>You missed today's{'\n'}wake-up.</Text>
+          <Text style={[styles.headline, { fontFamily: fonts.bold }]}>{t.missedWakeUp}</Text>
 
           <View style={styles.bulletList}>
-            <BulletRow icon="trending-down" text="Your streak has reset." />
-            <BulletRow icon="minus-circle" text="Discipline score dropped by 5." />
-            <BulletRow icon="sunrise" text="Try again tomorrow." />
+            <BulletRow icon="trending-down" text={t.streakReset} fontFamily={fonts.regular} />
+            <BulletRow icon="minus-circle" text={t.scoreDrop} fontFamily={fonts.regular} />
+            <BulletRow icon="sunrise" text={t.tryTomorrow} fontFamily={fonts.regular} />
           </View>
         </View>
 
-        {/* CTA */}
         <Pressable
           onPress={() => router.replace('/(tabs)')}
           style={({ pressed }) => [styles.btn, { opacity: pressed ? 0.85 : 1 }]}
         >
-          <Text style={styles.btnText}>Back to Dashboard</Text>
+          <Text style={[styles.btnText, { fontFamily: fonts.semiBold }]}>{t.backToDashboard}</Text>
         </Pressable>
 
-        <Text style={styles.footnote}>
-          Consistency is built one morning at a time.
-        </Text>
+        <Text style={[styles.footnote, { fontFamily: fonts.regular }]}>{t.footnote}</Text>
       </Animated.View>
     </View>
   );
 }
 
-function BulletRow({ icon, text }: { icon: string; text: string }) {
+function BulletRow({ icon, text, fontFamily }: { icon: string; text: string; fontFamily: string }) {
   return (
     <View style={styles.bulletRow}>
       <Feather name={icon as any} size={15} color="rgba(255,68,68,0.7)" />
-      <Text style={styles.bulletText}>{text}</Text>
+      <Text style={[styles.bulletText, { fontFamily }]}>{text}</Text>
     </View>
   );
 }
@@ -128,7 +124,6 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontSize: 30,
-    fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
     textAlign: 'center',
     letterSpacing: -0.5,
@@ -150,7 +145,6 @@ const styles = StyleSheet.create({
   },
   bulletText: {
     fontSize: 15,
-    fontFamily: 'Inter_400Regular',
     color: 'rgba(255,255,255,0.65)',
     flex: 1,
   },
@@ -164,12 +158,10 @@ const styles = StyleSheet.create({
   },
   btnText: {
     fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
     color: '#FFFFFF',
   },
   footnote: {
     fontSize: 13,
-    fontFamily: 'Inter_400Regular',
     color: 'rgba(255,255,255,0.25)',
     textAlign: 'center',
     fontStyle: 'italic',

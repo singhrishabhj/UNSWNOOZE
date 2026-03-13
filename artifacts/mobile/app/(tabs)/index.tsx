@@ -21,6 +21,7 @@ import { StreakRing } from '@/components/StreakRing';
 import { Colors } from '@/constants/colors';
 import { Alarm, useApp } from '@/context/AppContext';
 import { useTheme } from '@/hooks/useTheme';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -55,18 +56,19 @@ function formatCountdown(ms: number): string {
   return `in ${h}h ${m}m`;
 }
 
-function getGreeting(): string {
+function getGreetingKey(): 'goodMorning' | 'stayFocused' | 'goodEvening' | 'restWellTonight' {
   const h = new Date().getHours();
-  if (h >= 5 && h < 12) return 'Good Morning';
-  if (h >= 12 && h < 17) return 'Stay Focused';
-  if (h >= 17 && h < 22) return 'Good Evening';
-  return 'Rest Well Tonight';
+  if (h >= 5 && h < 12) return 'goodMorning';
+  if (h >= 12 && h < 17) return 'stayFocused';
+  if (h >= 17 && h < 22) return 'goodEvening';
+  return 'restWellTonight';
 }
 
 // ─── NextAlarmBanner ──────────────────────────────────────────────────────────
 
 function NextAlarmBanner({ alarms }: { alarms: Alarm[] }) {
   const { isDark, colors } = useTheme();
+  const { t, fonts } = useTranslation();
   const [, forceUpdate] = useState(0);
 
   // Refresh countdown every 30s
@@ -85,9 +87,11 @@ function NextAlarmBanner({ alarms }: { alarms: Alarm[] }) {
       }]}>
         <Feather name="bell-off" size={20} color={colors.textMuted} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.nextAlarmLabel, { color: colors.textMuted }]}>No active alarms</Text>
-          <Text style={[styles.nextAlarmSub, { color: colors.textMuted }]}>
-            Tap + to create your first alarm
+          <Text style={[styles.nextAlarmLabel, { color: colors.textMuted, fontFamily: fonts.medium }]}>
+            {t.noActiveAlarms}
+          </Text>
+          <Text style={[styles.nextAlarmSub, { color: colors.textMuted, fontFamily: fonts.regular }]}>
+            {t.tapToCreateFirst}
           </Text>
         </View>
       </View>
@@ -105,7 +109,9 @@ function NextAlarmBanner({ alarms }: { alarms: Alarm[] }) {
         <Feather name="bell" size={18} color={Colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.nextAlarmLabel, { color: colors.textSecondary }]}>Next alarm</Text>
+        <Text style={[styles.nextAlarmLabel, { color: colors.textSecondary, fontFamily: fonts.medium }]}>
+          {t.nextAlarm}
+        </Text>
         <View style={styles.nextAlarmRow}>
           <Text style={[styles.nextAlarmTime, { color: isDark ? '#fff' : '#111' }]}>
             {formatTime12(next.alarm.time)}
@@ -130,6 +136,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { isDark, colors } = useTheme();
   const { data, achievements, deleteAlarm, toggleAlarm } = useApp();
+  const { t, fonts } = useTranslation();
   const fabScale = useRef(new Animated.Value(1)).current;
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top + 16;
@@ -157,19 +164,21 @@ export default function HomeScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.greeting, { color: colors.textSecondary }]}>
-                {getGreeting()}
+              <Text style={[styles.greeting, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+                {t[getGreetingKey()]}
               </Text>
               <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#111' }]}>
                 UNSNWOOZE
               </Text>
-              <Text style={[styles.headerTagline, { color: colors.textMuted }]}>
-                Wake up like you mean it.
+              <Text style={[styles.headerTagline, { color: colors.textMuted, fontFamily: fonts.regular }]}>
+                {t.tagline}
               </Text>
             </View>
             <View style={styles.ringWrap}>
               <DisciplineRing score={disciplineScore} />
-              <Text style={[styles.ringLabel, { color: colors.textMuted }]}>Discipline</Text>
+              <Text style={[styles.ringLabel, { color: colors.textMuted, fontFamily: fonts.medium }]}>
+                {t.discipline}
+              </Text>
             </View>
           </View>
 
@@ -183,7 +192,9 @@ export default function HomeScreen() {
 
           {/* Streak */}
           <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
-            <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>Your Streak</Text>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111', fontFamily: fonts.bold }]}>
+              {t.yourStreak}
+            </Text>
             <View style={styles.streakCenter}>
               <StreakRing currentStreak={data.currentStreak} bestStreak={data.bestStreak} />
             </View>
@@ -192,11 +203,11 @@ export default function HomeScreen() {
           {/* Achievements — always visible */}
           <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: colors.border }]}>
             <View style={styles.achievementsHeader}>
-              <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>
-                Achievements
+              <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111', fontFamily: fonts.bold }]}>
+                {t.achievements}
               </Text>
-              <Text style={[styles.achievementsSub, { color: colors.textMuted }]}>
-                {achievements.filter(a => a.unlocked).length}/{achievements.length} unlocked
+              <Text style={[styles.achievementsSub, { color: colors.textMuted, fontFamily: fonts.regular }]}>
+                {achievements.filter(a => a.unlocked).length}/{achievements.length} {t.unlocked}
               </Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
@@ -210,18 +221,22 @@ export default function HomeScreen() {
 
           {/* Alarms list */}
           <View style={styles.alarmsHeader}>
-            <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111' }]}>Alarms</Text>
-            <Text style={[styles.alarmsCount, { color: colors.textMuted }]}>
-              {data.alarms.filter(a => a.enabled).length} active
+            <Text style={[styles.sectionTitle, { color: isDark ? '#fff' : '#111', fontFamily: fonts.bold }]}>
+              {t.alarms}
+            </Text>
+            <Text style={[styles.alarmsCount, { color: colors.textMuted, fontFamily: fonts.regular }]}>
+              {data.alarms.filter(a => a.enabled).length} {t.active}
             </Text>
           </View>
 
           {data.alarms.length === 0 ? (
             <View style={[styles.emptyState, { backgroundColor: cardBg, borderColor: colors.border }]}>
               <Feather name="bell-off" size={36} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: isDark ? '#fff' : '#111' }]}>No alarms set</Text>
-              <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
-                Tap the + button to create your first alarm
+              <Text style={[styles.emptyTitle, { color: isDark ? '#fff' : '#111', fontFamily: fonts.semiBold }]}>
+                {t.noAlarmsSet}
+              </Text>
+              <Text style={[styles.emptyBody, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+                {t.tapPlusToCreate}
               </Text>
             </View>
           ) : (

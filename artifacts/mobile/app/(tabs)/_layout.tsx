@@ -8,17 +8,19 @@ import React from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { Colors } from "@/constants/colors";
 import { useApp } from "@/context/AppContext";
+import { useTranslation } from "@/hooks/useTranslation";
 
 function NativeTabLayout() {
+  const { t } = useTranslation();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
+        <Label>{t.home}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
-        <Label>Settings</Label>
+        <Label>{t.settings}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -27,6 +29,7 @@ function NativeTabLayout() {
 function ClassicTabLayout() {
   const systemScheme = useColorScheme();
   const { data } = useApp();
+  const { t } = useTranslation();
   const scheme = data.theme === 'system' ? (systemScheme ?? 'dark') : data.theme;
   const isDark = scheme === 'dark';
   const isIOS = Platform.OS === "ios";
@@ -62,7 +65,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t.home,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="house.fill" tintColor={color} size={24} />
@@ -74,7 +77,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings",
+          title: t.settings,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="gearshape.fill" tintColor={color} size={24} />
