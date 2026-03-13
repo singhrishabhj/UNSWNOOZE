@@ -1,14 +1,14 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
-  FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,91 +17,373 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
 
-const { width, height } = Dimensions.get('window');
+const SLIDES_COUNT = 4;
 
-interface OnboardSlide {
-  id: string;
-  title: string;
-  body: string;
-  iconName: string;
-  iconSet: 'Feather' | 'Ionicons';
+// ─── Per-slide entrance hook ──────────────────────────────────────────────────
+function useEntrance(isActive: boolean, delay = 0) {
+  const opacity = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const translateY = useRef(new Animated.Value(isActive ? 0 : 28)).current;
+  const ran = useRef(isActive);
+
+  useEffect(() => {
+    if (isActive && !ran.current) {
+      ran.current = true;
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 480,
+          delay,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          tension: 60,
+          friction: 12,
+          delay,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+    if (!isActive) {
+      ran.current = false;
+      opacity.setValue(0);
+      translateY.setValue(28);
+    }
+  }, [isActive]);
+
+  return { opacity, translateY };
 }
 
-const SLIDES: OnboardSlide[] = [
-  {
-    id: '1',
-    title: 'The Snooze Loop',
-    body: 'Every morning begins the same way.\nThe alarm rings.\nYou press snooze again and again.',
-    iconName: 'moon',
-    iconSet: 'Feather',
-  },
-  {
-    id: '2',
-    title: 'Lost Mornings',
-    body: 'Small delays become lost hours.\nYour day begins already behind schedule.',
-    iconName: 'clock',
-    iconSet: 'Feather',
-  },
-  {
-    id: '3',
-    title: 'A Different Alarm',
-    body: 'UNSNWOOZE prevents endless snoozing.\nYou must complete an action before the alarm stops.',
-    iconName: 'bell-off',
-    iconSet: 'Feather',
-  },
-  {
-    id: '4',
-    title: 'Wake With Action',
-    body: 'Before the alarm stops you must complete a task.\n• Face verification\n• Photo verification',
-    iconName: 'camera',
-    iconSet: 'Feather',
-  },
-  {
-    id: '5',
-    title: 'Build Discipline',
-    body: 'Consistent mornings create powerful habits.',
-    iconName: 'trending-up',
-    iconSet: 'Feather',
-  },
-];
+// ─── Slide 1: Stop Snoozing ───────────────────────────────────────────────────
+function Slide1({ isActive, width }: { isActive: boolean; width: number }) {
+  const icon = useEntrance(isActive, 0);
+  const text = useEntrance(isActive, 160);
 
-function SlideIcon({ iconName, iconSet }: { iconName: string; iconSet: string }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const ring1 = useRef(new Animated.Value(0.6)).current;
+  const ring1Op = useRef(new Animated.Value(0.6)).current;
+  const ring2 = useRef(new Animated.Value(0.6)).current;
+  const ring2Op = useRef(new Animated.Value(0.5)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!isActive) return;
+    // Pulse the icon
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.1, duration: 1500, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.1, duration: 1100, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
       ])
     ).start();
-  }, []);
+    // Expanding rings
+    const ringLoop = () =>
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(ring1, { toValue: 2.2, duration: 2000, useNativeDriver: true }),
+            Animated.timing(ring1, { toValue: 0.6, duration: 0, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(ring1Op, { toValue: 0, duration: 2000, useNativeDriver: true }),
+            Animated.timing(ring1Op, { toValue: 0.6, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    const ring2Loop = () =>
+      Animated.loop(
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(ring2, { toValue: 2.2, duration: 2000, useNativeDriver: true }),
+            Animated.timing(ring2, { toValue: 0.6, duration: 0, useNativeDriver: true }),
+          ]),
+          Animated.sequence([
+            Animated.timing(ring2Op, { toValue: 0, duration: 2000, useNativeDriver: true }),
+            Animated.timing(ring2Op, { toValue: 0.4, duration: 0, useNativeDriver: true }),
+          ]),
+        ])
+      ).start();
+    ringLoop();
+    setTimeout(ring2Loop, 700);
+  }, [isActive]);
 
   return (
-    <Animated.View style={[styles.iconWrapper, { transform: [{ scale: pulseAnim }] }]}>
-      <View style={styles.iconGlow} />
-      <Feather name={iconName as any} size={52} color={Colors.primary} />
-    </Animated.View>
+    <View style={[s.slide, { width }]}>
+      <Animated.View
+        style={[s.iconBlock, { opacity: icon.opacity, transform: [{ translateY: icon.translateY }] }]}
+      >
+        {/* Rings */}
+        <Animated.View
+          style={[s.ring, { transform: [{ scale: ring1 }], opacity: ring1Op }]}
+        />
+        <Animated.View
+          style={[s.ring, { transform: [{ scale: ring2 }], opacity: ring2Op }]}
+        />
+        {/* Icon */}
+        <Animated.View
+          style={[s.iconCircle, { transform: [{ scale: pulseAnim }] }]}
+        >
+          <Feather name="bell" size={48} color={Colors.primary} />
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.View
+        style={[s.textBlock, { opacity: text.opacity, transform: [{ translateY: text.translateY }] }]}
+      >
+        <Text style={s.headline}>Stop Snoozing.</Text>
+        <Text style={s.body}>
+          Most alarms are easy to ignore.{'\n'}UNSNWOOZE makes waking up{'\n'}non-negotiable.
+        </Text>
+      </Animated.View>
+    </View>
   );
 }
 
+// ─── Slide 2: Prove You're Awake ─────────────────────────────────────────────
+const FEATURES = [
+  { icon: 'camera', label: 'Selfie Check' },
+  { icon: 'trending-up', label: 'Streak Tracking' },
+  { icon: 'award', label: 'Discipline Score' },
+] as const;
+
+function Slide2({ isActive, width }: { isActive: boolean; width: number }) {
+  const text = useEntrance(isActive, 0);
+
+  const featureAnims = useRef(
+    FEATURES.map((_, i) => ({
+      opacity: new Animated.Value(0),
+      scale: new Animated.Value(0.7),
+    }))
+  ).current;
+
+  useEffect(() => {
+    if (!isActive) {
+      featureAnims.forEach(a => { a.opacity.setValue(0); a.scale.setValue(0.7); });
+      return;
+    }
+    FEATURES.forEach((_, i) => {
+      const delay = 160 + i * 120;
+      Animated.parallel([
+        Animated.timing(featureAnims[i].opacity, {
+          toValue: 1, duration: 380, delay, useNativeDriver: true,
+        }),
+        Animated.spring(featureAnims[i].scale, {
+          toValue: 1, tension: 70, friction: 10, delay, useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  }, [isActive]);
+
+  return (
+    <View style={[s.slide, { width }]}>
+      <Animated.View
+        style={[s.textBlock, { opacity: text.opacity, transform: [{ translateY: text.translateY }], marginBottom: 40 }]}
+      >
+        <Text style={s.headline}>Prove You're Awake.</Text>
+        <Text style={s.body}>
+          Your alarm stops only after you{'\n'}complete the wake-up challenge.
+        </Text>
+      </Animated.View>
+
+      <View style={s.featuresRow}>
+        {FEATURES.map((f, i) => (
+          <Animated.View
+            key={f.icon}
+            style={[
+              s.featureCard,
+              {
+                opacity: featureAnims[i].opacity,
+                transform: [{ scale: featureAnims[i].scale }],
+              },
+            ]}
+          >
+            <View style={s.featureIconWrap}>
+              <Feather name={f.icon} size={26} color={Colors.primary} />
+            </View>
+            <Text style={s.featureLabel}>{f.label}</Text>
+          </Animated.View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── Slide 3: Build Real Discipline ──────────────────────────────────────────
+function Slide3({ isActive, width }: { isActive: boolean; width: number }) {
+  const text = useEntrance(isActive, 0);
+  const ring = useEntrance(isActive, 100);
+
+  // Animated streak counter 0 → 7
+  const streakCount = useRef(new Animated.Value(0)).current;
+  const [displayStreak, setDisplayStreak] = useState(0);
+  const barWidth = useRef(new Animated.Value(0)).current;
+
+  // Badge anims
+  const badgeAnims = useRef(
+    [0, 1, 2, 3].map(() => ({
+      opacity: new Animated.Value(0),
+      scale: new Animated.Value(0.5),
+    }))
+  ).current;
+
+  useEffect(() => {
+    if (!isActive) {
+      streakCount.setValue(0);
+      setDisplayStreak(0);
+      barWidth.setValue(0);
+      badgeAnims.forEach(a => { a.opacity.setValue(0); a.scale.setValue(0.5); });
+      return;
+    }
+
+    // Count up streak display
+    const listener = streakCount.addListener(({ value }) => setDisplayStreak(Math.round(value)));
+    Animated.timing(streakCount, { toValue: 7, duration: 1400, delay: 200, useNativeDriver: false }).start();
+    Animated.timing(barWidth, { toValue: 1, duration: 1400, delay: 200, useNativeDriver: false }).start();
+
+    // Pop in badge icons
+    badgeAnims.forEach((a, i) => {
+      const delay = 800 + i * 110;
+      Animated.parallel([
+        Animated.timing(a.opacity, { toValue: 1, duration: 300, delay, useNativeDriver: true }),
+        Animated.spring(a.scale, { toValue: 1, tension: 80, friction: 9, delay, useNativeDriver: true }),
+      ]).start();
+    });
+
+    return () => streakCount.removeListener(listener);
+  }, [isActive]);
+
+  const BADGE_ICONS = ['sun', 'trending-up', 'sunrise', 'award'] as const;
+
+  return (
+    <View style={[s.slide, { width }]}>
+      <Animated.View
+        style={[s.textBlock, { opacity: text.opacity, transform: [{ translateY: text.translateY }], marginBottom: 36 }]}
+      >
+        <Text style={s.headline}>Build Real Discipline.</Text>
+        <Text style={s.body}>
+          Track streaks. Earn achievements.{'\n'}Become someone who wakes up on time.
+        </Text>
+      </Animated.View>
+
+      {/* Streak counter */}
+      <Animated.View
+        style={[s.streakBlock, { opacity: ring.opacity, transform: [{ translateY: ring.translateY }] }]}
+      >
+        <View style={s.streakRow}>
+          <Feather name="zap" size={18} color={Colors.primary} />
+          <Text style={s.streakNumber}>{displayStreak}</Text>
+          <Text style={s.streakUnit}>day streak</Text>
+        </View>
+
+        {/* Progress bar */}
+        <View style={s.barTrack}>
+          <Animated.View
+            style={[
+              s.barFill,
+              {
+                width: barWidth.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '70%'],
+                }),
+              },
+            ]}
+          />
+        </View>
+
+        {/* Achievement badges */}
+        <View style={s.badgesRow}>
+          {BADGE_ICONS.map((icon, i) => (
+            <Animated.View
+              key={icon}
+              style={[
+                s.badge,
+                {
+                  opacity: badgeAnims[i].opacity,
+                  transform: [{ scale: badgeAnims[i].scale }],
+                  backgroundColor: i < 2 ? 'rgba(255,107,0,0.18)' : 'rgba(255,255,255,0.05)',
+                  borderColor: i < 2 ? 'rgba(255,107,0,0.4)' : 'rgba(255,255,255,0.1)',
+                },
+              ]}
+            >
+              <Feather name={icon} size={18} color={i < 2 ? Colors.primary : 'rgba(255,255,255,0.2)'} />
+            </Animated.View>
+          ))}
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
+// ─── Slide 4: Welcome ─────────────────────────────────────────────────────────
+function Slide4({
+  isActive,
+  width,
+  onStart,
+}: {
+  isActive: boolean;
+  width: number;
+  onStart: () => void;
+}) {
+  const brand = useEntrance(isActive, 0);
+  const cta = useEntrance(isActive, 300);
+
+  return (
+    <View style={[s.slide, { width, justifyContent: 'center', gap: 48 }]}>
+      {/* Brand block */}
+      <Animated.View
+        style={[
+          s.brandBlock,
+          { opacity: brand.opacity, transform: [{ translateY: brand.translateY }] },
+        ]}
+      >
+        <View style={s.brandIconWrap}>
+          <LinearGradient
+            colors={['#FF8C33', Colors.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.brandIconGrad}
+          >
+            <Feather name="bell" size={36} color="#fff" />
+          </LinearGradient>
+        </View>
+        <Text style={s.brandName}>UNSNWOOZE</Text>
+        <Text style={s.brandTagline}>Wake up like you mean it.</Text>
+      </Animated.View>
+
+      {/* CTA */}
+      <Animated.View
+        style={[s.ctaWrap, { opacity: cta.opacity, transform: [{ translateY: cta.translateY }] }]}
+      >
+        <Pressable
+          onPress={onStart}
+          style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+        >
+          <LinearGradient
+            colors={['#FF8C33', Colors.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.ctaBtn}
+          >
+            <Text style={s.ctaBtnText}>Start My First Alarm</Text>
+            <Feather name="arrow-right" size={18} color="#fff" />
+          </LinearGradient>
+        </Pressable>
+        <Text style={s.ctaNote}>No account needed. Free to start.</Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+// ─── Onboarding root ──────────────────────────────────────────────────────────
 export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const { completeOnboarding } = useApp();
+
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
+  const [slideWidth, setSlideWidth] = useState(Dimensions.get('window').width);
+  const scrollRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  const handleNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      const next = currentIndex + 1;
-      flatListRef.current?.scrollToIndex({ index: next, animated: true });
-      setCurrentIndex(next);
-      Haptics.selectionAsync();
-    } else {
-      handleGetStarted();
-    }
-  };
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const botPad = Platform.OS === 'web' ? 34 : Math.max(insets.bottom, 24);
 
   const handleGetStarted = () => {
     completeOnboarding();
@@ -109,49 +391,123 @@ export default function Onboarding() {
     router.replace('/(tabs)');
   };
 
-  const isLast = currentIndex === SLIDES.length - 1;
+  const handleNext = () => {
+    if (currentIndex < SLIDES_COUNT - 1) {
+      const next = currentIndex + 1;
+      scrollRef.current?.scrollTo({ x: next * slideWidth, animated: true });
+      setCurrentIndex(next);
+      Haptics.selectionAsync();
+    }
+  };
+
+  const isLast = currentIndex === SLIDES_COUNT - 1;
 
   return (
-    <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 67 : 0, paddingBottom: Platform.OS === 'web' ? 34 : 0 }]}>
-      <View style={[styles.skipRow, { top: insets.top + 16 }]}>
-        {!isLast && (
-          <Pressable onPress={handleGetStarted} style={styles.skipBtn}>
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        )}
-      </View>
+    <View style={[s.root, { paddingTop: topPad }]}>
+      {/* Background gradient accent */}
+      <View style={s.bgGlow} />
 
-      <Animated.FlatList
-        ref={flatListRef}
-        data={SLIDES}
-        keyExtractor={item => item.id}
+      {/* Skip */}
+      {!isLast && (
+        <Pressable
+          onPress={handleGetStarted}
+          style={[s.skipBtn, { top: topPad + 12 }]}
+        >
+          <Text style={s.skipText}>Skip</Text>
+        </Pressable>
+      )}
+
+      {/* Slide pager */}
+      <ScrollView
+        ref={scrollRef}
         horizontal
         pagingEnabled
+        scrollEventThrottle={16}
         showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
+        bounces={false}
+        style={{ flex: 1 }}
+        onLayout={e => setSlideWidth(e.nativeEvent.layout.width)}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: false }
         )}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            <SlideIcon iconName={item.iconName} iconSet={item.iconSet} />
-            <Text style={styles.slideTitle}>{item.title}</Text>
-            <Text style={styles.slideBody}>{item.body}</Text>
-          </View>
-        )}
-      />
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / slideWidth);
+          setCurrentIndex(idx);
+          Haptics.selectionAsync();
+        }}
+      >
+        <Slide1 isActive={currentIndex === 0} width={slideWidth} />
+        <Slide2 isActive={currentIndex === 1} width={slideWidth} />
+        <Slide3 isActive={currentIndex === 2} width={slideWidth} />
+        <Slide4 isActive={currentIndex === 3} width={slideWidth} onStart={handleGetStarted} />
+      </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 34) }]}>
-        <View style={styles.dots}>
-          {SLIDES.map((_, i) => {
-            const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-            const dotWidth = scrollX.interpolate({
+      {/* Footer: dots + next button */}
+      {!isLast && (
+        <View style={[s.footer, { paddingBottom: botPad }]}>
+          {/* Dots */}
+          <View style={s.dots}>
+            {Array.from({ length: SLIDES_COUNT }).map((_, i) => {
+              const inputRange = [
+                (i - 1) * slideWidth,
+                i * slideWidth,
+                (i + 1) * slideWidth,
+              ];
+              const w = scrollX.interpolate({
+                inputRange,
+                outputRange: [8, 22, 8],
+                extrapolate: 'clamp',
+              });
+              const op = scrollX.interpolate({
+                inputRange,
+                outputRange: [0.3, 1, 0.3],
+                extrapolate: 'clamp',
+              });
+              return (
+                <Animated.View
+                  key={i}
+                  style={[s.dot, { width: w, opacity: op }]}
+                />
+              );
+            })}
+          </View>
+
+          {/* Next arrow */}
+          <Pressable
+            onPress={handleNext}
+            style={({ pressed }) => [
+              s.nextBtn,
+              { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.94 : 1 }] },
+            ]}
+          >
+            <LinearGradient
+              colors={['#FF8C33', Colors.primary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.nextBtnGrad}
+            >
+              <Feather name="arrow-right" size={22} color="#fff" />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Dots-only row on last slide */}
+      {isLast && (
+        <View style={[s.dotsOnly, { paddingBottom: botPad }]}>
+          {Array.from({ length: SLIDES_COUNT }).map((_, i) => {
+            const inputRange = [
+              (i - 1) * slideWidth,
+              i * slideWidth,
+              (i + 1) * slideWidth,
+            ];
+            const w = scrollX.interpolate({
               inputRange,
-              outputRange: [8, 24, 8],
+              outputRange: [8, 22, 8],
               extrapolate: 'clamp',
             });
-            const dotOpacity = scrollX.interpolate({
+            const op = scrollX.interpolate({
               inputRange,
               outputRange: [0.3, 1, 0.3],
               extrapolate: 'clamp',
@@ -159,102 +515,257 @@ export default function Onboarding() {
             return (
               <Animated.View
                 key={i}
-                style={[styles.dot, { width: dotWidth, opacity: dotOpacity }]}
+                style={[s.dot, { width: w, opacity: op }]}
               />
             );
           })}
         </View>
-
-        <Pressable
-          onPress={handleNext}
-          style={({ pressed }) => [styles.nextBtn, { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
-        >
-          <LinearGradient
-            colors={['#FF8C33', Colors.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.nextBtnGrad}
-          >
-            {isLast ? (
-              <Text style={styles.nextBtnText}>Get Started</Text>
-            ) : (
-              <Feather name="arrow-right" size={22} color="#fff" />
-            )}
-          </LinearGradient>
-        </Pressable>
-      </View>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: '#0F0F0F',
   },
-  skipRow: {
+  bgGlow: {
     position: 'absolute',
-    right: 20,
-    zIndex: 10,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: Colors.primary,
+    opacity: 0.04,
+    top: -60,
+    alignSelf: 'center',
   },
   skipBtn: {
-    paddingHorizontal: 16,
+    position: 'absolute',
+    right: 22,
+    zIndex: 20,
+    paddingHorizontal: 14,
     paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   skipText: {
-    color: Colors.dark.textSecondary,
+    color: 'rgba(255,255,255,0.45)',
     fontFamily: 'Inter_500Medium',
-    fontSize: 15,
+    fontSize: 14,
   },
+
+  // Slides
   slide: {
-    width,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 80,
+    paddingHorizontal: 36,
+    gap: 0,
   },
-  iconWrapper: {
+
+  // Slide 1 – icon area
+  iconBlock: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 160,
+    height: 160,
+    marginBottom: 48,
+  },
+  ring: {
+    position: 'absolute',
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 107, 0, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 0, 0.3)',
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  iconCircle: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    backgroundColor: 'rgba(255,107,0,0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,107,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 48,
-    position: 'relative',
   },
-  iconGlow: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.primary,
-    opacity: 0.12,
+
+  // Text block (shared)
+  textBlock: {
+    alignItems: 'center',
+    gap: 16,
+    width: '100%',
   },
-  slideTitle: {
-    fontSize: 30,
+  headline: {
+    fontSize: 38,
     fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 20,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
+    lineHeight: 46,
   },
-  slideBody: {
+  body: {
     fontSize: 16,
     fontFamily: 'Inter_400Regular',
-    color: Colors.dark.textSecondary,
+    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     lineHeight: 26,
   },
+
+  // Slide 2 – features
+  featuresRow: {
+    flexDirection: 'row',
+    gap: 14,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  featureCard: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(255,107,0,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,0,0.2)',
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 8,
+  },
+  featureIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,107,0,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    color: 'rgba(255,255,255,0.6)',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+
+  // Slide 3 – streak block
+  streakBlock: {
+    width: '100%',
+    backgroundColor: 'rgba(255,107,0,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,0,0.18)',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    gap: 18,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  streakNumber: {
+    fontSize: 56,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.primary,
+    letterSpacing: -2,
+    lineHeight: 62,
+  },
+  streakUnit: {
+    fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.45)',
+  },
+  barTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  barFill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  badge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Slide 4 – brand + CTA
+  brandBlock: {
+    alignItems: 'center',
+    gap: 14,
+  },
+  brandIconWrap: {
+    marginBottom: 8,
+  },
+  brandIconGrad: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandName: {
+    fontSize: 34,
+    fontFamily: 'Inter_700Bold',
+    color: '#FFFFFF',
+    letterSpacing: -1,
+  },
+  brandTagline: {
+    fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 0.2,
+  },
+  ctaWrap: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 16,
+  },
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 36,
+    paddingVertical: 18,
+    borderRadius: 28,
+  },
+  ctaBtnText: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+    letterSpacing: -0.2,
+  },
+  ctaNote: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.25)',
+  },
+
+  // Footer
   footer: {
-    paddingHorizontal: 32,
-    paddingTop: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 32,
+    paddingTop: 20,
+  },
+  dotsOnly: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 20,
+    gap: 6,
   },
   dots: {
     flexDirection: 'row',
@@ -266,24 +777,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: Colors.primary,
   },
-  nextBtn: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
-  },
+  nextBtn: {},
   nextBtnGrad: {
+    width: 56,
     height: 56,
     borderRadius: 28,
-    paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 56,
-  },
-  nextBtnText: {
-    color: '#fff',
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
   },
 });

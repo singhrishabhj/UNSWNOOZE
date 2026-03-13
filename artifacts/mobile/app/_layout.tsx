@@ -49,6 +49,7 @@ function RootLayoutNav() {
       <Stack.Screen name="alarm/trigger" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       <Stack.Screen name="alarm/task" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       <Stack.Screen name="alarm/complete" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+      <Stack.Screen name="alarm/failure" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
     </Stack>
   );
 }
