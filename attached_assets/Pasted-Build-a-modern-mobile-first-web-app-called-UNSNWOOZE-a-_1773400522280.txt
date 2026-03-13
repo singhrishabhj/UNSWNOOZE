@@ -1,0 +1,194 @@
+Build a modern mobile-first web app called **UNSNWOOZE** — a smart alarm clock designed to prevent oversleeping and make waking up engaging and gamified.
+
+The goal of the app is to transform waking up into a productivity challenge rather than a basic alarm.
+
+CORE CONCEPT
+UNSNWOOZE forces users to physically or mentally prove they are awake before the alarm stops.
+
+MAIN FEATURES
+
+1. Smart Alarm System
+   Users can set alarms with:
+
+* time
+* repeat days
+* alarm sound
+* difficulty level
+
+The alarm should continue ringing until the user completes a wake-up challenge.
+
+2. Wake-Up Proof Challenges
+   To stop the alarm the user must complete one of the following:
+
+Selfie Verification
+User must take a selfie after waking up.
+
+QR Code Scan
+User prints a QR code and places it in another room (bathroom, kitchen). The alarm stops only after scanning it.
+
+Puzzle Challenge
+User solves a quick puzzle.
+
+Math Challenge
+User solves simple math problems.
+
+Object Photo Challenge
+App randomly asks user to photograph a household object (toothbrush, door, sink etc).
+
+3. Discipline Score & Streaks
+   Track waking habits.
+
+Metrics:
+
+* Daily wake success
+* Streak days
+* Snooze count
+* Discipline score
+
+Discipline score increases when users wake up on time without snoozing.
+
+Display streak badges for:
+
+* 7 days
+* 14 days
+* 30 days
+* 90 days
+
+4. Smart Penalty Mode
+   If the user snoozes too many times:
+
+* Alarm volume increases
+* Continuous vibration
+* Flashing screen
+* Alarm cannot be dismissed without completing a challenge.
+
+5. Social Wake-Up Challenges
+   Users can create groups with friends.
+
+Group features:
+
+* Shared wake-up time
+* Leaderboard
+* First person completing challenge gets points
+* Weekly ranking
+
+6. Embarrassment Mode (Viral Feature)
+   If a user fails to wake up:
+
+The app can send a message to selected friends or a group.
+
+Example message:
+"Rishabh failed to wake up at 6:00 AM again 😴"
+
+Users must enable this feature manually.
+
+7. Shareable Achievement Cards
+   When a user reaches milestones such as:
+
+7 day streak
+30 day streak
+100 discipline score
+
+The app generates a shareable card optimized for Instagram, WhatsApp, and Reels.
+
+Cards include:
+
+* streak number
+* username
+* motivational quote
+
+8. Achievement System
+   Unlock achievements such as:
+
+Early Bird
+No Snooze Champion
+30 Day Discipline
+5AM Club
+
+Display badges on profile.
+
+9. Analytics Dashboard
+   User can see:
+
+* weekly wake performance
+* snooze patterns
+* average wake time
+* discipline trend graph
+
+10. Premium Features (Subscription)
+    Freemium model.
+
+Free Version:
+
+* 3 alarms
+* basic challenges
+* streak tracking
+
+Premium Version:
+
+* unlimited alarms
+* advanced wake challenges
+* celebrity alarm voices
+* motivational AI voice alarm
+* detailed analytics
+* custom challenge creation
+
+Subscription pricing example:
+₹99/month or ₹699/year.
+
+UI/UX DESIGN REQUIREMENTS
+
+Modern minimal design inspired by Apple and productivity apps.
+
+Use:
+
+* dark mode default
+* bold typography
+* large alarm time display
+* gamified progress bars
+* animated streak counters
+* achievement badges
+
+SCREENS REQUIRED
+
+1. onboarding screen
+2. alarm creation screen
+3. alarm dashboard
+4. challenge completion screen
+5. streak dashboard
+6. group challenge screen
+7. analytics screen
+8. profile page
+9. premium upgrade page
+
+TECHNOLOGY STACK
+
+Frontend:
+React or Next.js
+
+Backend:
+Node.js with Express
+
+Database:
+Firebase or Supabase
+
+Authentication:
+Google login or email login
+
+Other features:
+Push notifications
+Alarm scheduling
+Camera access for selfies and object detection
+QR scanner integration
+
+EXTRA VIRAL FEATURES
+
+Daily motivational wake-up message.
+
+"Today 82% of users woke up before you."
+
+Community leaderboard showing early risers.
+
+GOAL
+
+Create a visually polished, highly engaging alarm app that encourages discipline, social accountability, and habit formation.
