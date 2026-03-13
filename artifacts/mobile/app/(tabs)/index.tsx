@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AchievementBadge } from '@/components/AchievementBadge';
 import { AlarmCard } from '@/components/AlarmCard';
 import { DigitalClock } from '@/components/DigitalClock';
+import { DisciplineRing } from '@/components/DisciplineRing';
 import { StreakRing } from '@/components/StreakRing';
 import { Colors } from '@/constants/colors';
 import { Alarm, useApp } from '@/context/AppContext';
@@ -56,9 +57,10 @@ function formatCountdown(ms: number): string {
 
 function getGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h >= 5 && h < 12) return 'Good Morning';
+  if (h >= 12 && h < 17) return 'Stay Focused';
+  if (h >= 17 && h < 22) return 'Good Evening';
+  return 'Rest Well Tonight';
 }
 
 // ─── NextAlarmBanner ──────────────────────────────────────────────────────────
@@ -165,12 +167,10 @@ export default function HomeScreen() {
                 Wake up like you mean it.
               </Text>
             </View>
-            {disciplineScore > 0 && (
-              <View style={[styles.scorePill, { backgroundColor: 'rgba(255,107,0,0.12)', borderColor: 'rgba(255,107,0,0.25)' }]}>
-                <Feather name="award" size={12} color={Colors.primary} />
-                <Text style={styles.scoreText}>{disciplineScore}</Text>
-              </View>
-            )}
+            <View style={styles.ringWrap}>
+              <DisciplineRing score={disciplineScore} />
+              <Text style={[styles.ringLabel, { color: colors.textMuted }]}>Discipline</Text>
+            </View>
           </View>
 
           {/* Clock */}
@@ -296,19 +296,16 @@ const styles = StyleSheet.create({
     marginTop: 1,
     letterSpacing: 0.1,
   },
-  scorePill: {
-    flexDirection: 'row',
+  ringWrap: {
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
+    gap: 4,
+    marginLeft: 12,
   },
-  scoreText: {
-    fontSize: 13,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.primary,
+  ringLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 
   // Clock

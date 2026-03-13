@@ -2,9 +2,10 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Platform,
   StyleSheet,
   Text,
@@ -24,50 +25,73 @@ const CONFETTI_COLORS = [
   '#4FC3F7',
   '#FF6B9D',
   '#A78BFA',
+  '#FFFFFF',
 ];
+
+const SHAPES = ['square', 'rect', 'circle'] as const;
 
 interface ConfettiPiece {
   x: Animated.Value;
   y: Animated.Value;
   rot: Animated.Value;
   opacity: Animated.Value;
+  scaleX: Animated.Value;
   color: string;
   size: number;
+  shape: 'square' | 'rect' | 'circle';
 }
 
 function Confetti() {
   const pieces = useRef<ConfettiPiece[]>(
-    Array.from({ length: 28 }, (_, i) => ({
-      x: new Animated.Value(20 + (i / 28) * 360 + (Math.random() - 0.5) * 60),
-      y: new Animated.Value(-20 - Math.random() * 60),
+    Array.from({ length: 40 }, (_, i) => ({
+      x: new Animated.Value(30 + (i / 40) * 360 + (Math.random() - 0.5) * 80),
+      y: new Animated.Value(-30 - Math.random() * 80),
       rot: new Animated.Value(0),
       opacity: new Animated.Value(1),
+      scaleX: new Animated.Value(1),
       color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-      size: 7 + Math.floor(Math.random() * 7),
+      size: 6 + Math.floor(Math.random() * 8),
+      shape: SHAPES[i % 3],
     })),
   ).current;
 
   useEffect(() => {
     pieces.forEach((p, i) => {
-      const delay = i * 55;
+      const delay = i * 40;
+      const duration = 1600 + Math.random() * 900;
       Animated.parallel([
         Animated.timing(p.y, {
-          toValue: 820,
-          duration: 1800 + Math.random() * 600,
+          toValue: 900,
+          duration,
           delay,
+          easing: Easing.in(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(p.rot, {
-          toValue: 4 + Math.random() * 4,
-          duration: 2000,
+          toValue: 3 + Math.random() * 6,
+          duration: duration * 0.9,
           delay,
           useNativeDriver: true,
         }),
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(p.scaleX, {
+              toValue: 0.2,
+              duration: 220 + Math.random() * 80,
+              useNativeDriver: true,
+            }),
+            Animated.timing(p.scaleX, {
+              toValue: 1,
+              duration: 220 + Math.random() * 80,
+              useNativeDriver: true,
+            }),
+          ]),
+        ),
         Animated.sequence([
-          Animated.delay(delay + 1400),
+          Animated.delay(delay + duration * 0.7),
           Animated.timing(p.opacity, {
             toValue: 0,
-            duration: 500,
+            duration: 400,
             useNativeDriver: true,
           }),
         ]),
@@ -84,14 +108,15 @@ function Confetti() {
             position: 'absolute',
             top: 0,
             left: 0,
-            width: p.size,
-            height: p.size,
+            width: p.shape === 'rect' ? p.size * 0.5 : p.size,
+            height: p.shape === 'rect' ? p.size * 1.6 : p.size,
             backgroundColor: p.color,
-            borderRadius: p.size > 10 ? 3 : 1,
+            borderRadius: p.shape === 'circle' ? p.size : 1,
             opacity: p.opacity,
             transform: [
               { translateX: p.x },
               { translateY: p.y },
+              { scaleX: p.scaleX },
               {
                 rotate: p.rot.interpolate({
                   inputRange: [0, 1],
@@ -119,11 +144,27 @@ export default function AlarmCompleteScreen() {
   const ringOpacity1 = useRef(new Animated.Value(0.8)).current;
   const ringOpacity2 = useRef(new Animated.Value(0.6)).current;
   const scorePillAnim = useRef(new Animated.Value(0)).current;
+  const streakScaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Counting state
+  const disciplineScore = data.disciplineScore;
+  const prevScore = Math.max(0, disciplineScore - 5);
+  const [displayScore, setDisplayScore] = useState(prevScore);
+
+  const currentStreak = data.currentStreak;
+  const [displayStreak, setDisplayStreak] = useState(Math.max(0, currentStreak - 1));
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   useEffect(() => {
+    // Haptics sequence: success pulse + confirmation tap
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, 300);
+    setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }, 600);
 
     // Entrance
     Animated.parallel([
@@ -146,7 +187,7 @@ export default function AlarmCompleteScreen() {
           Animated.timing(ringOpacity1, { toValue: 0, duration: 1800, useNativeDriver: true }),
           Animated.timing(ringOpacity1, { toValue: 0.6, duration: 0, useNativeDriver: true }),
         ]),
-      ])
+      ]),
     ).start();
 
     setTimeout(() => {
@@ -160,15 +201,44 @@ export default function AlarmCompleteScreen() {
             Animated.timing(ringOpacity2, { toValue: 0, duration: 1800, useNativeDriver: true }),
             Animated.timing(ringOpacity2, { toValue: 0.4, duration: 0, useNativeDriver: true }),
           ]),
-        ])
+        ]),
       ).start();
     }, 600);
 
-    // Score pill pops in after 700ms
+    // Stats appear at 700ms then count up
     setTimeout(() => {
       Animated.spring(scorePillAnim, {
         toValue: 1, tension: 60, friction: 8, useNativeDriver: true,
       }).start();
+
+      // Count score up: prevScore → disciplineScore over 900ms
+      const scoreDiff = disciplineScore - prevScore;
+      if (scoreDiff > 0) {
+        const stepMs = 900 / scoreDiff;
+        let cur = prevScore;
+        const id = setInterval(() => {
+          cur += 1;
+          setDisplayScore(cur);
+          if (cur >= disciplineScore) clearInterval(id);
+        }, stepMs);
+      }
+
+      // Count streak up if it changed
+      const streakDiff = currentStreak - Math.max(0, currentStreak - 1);
+      if (streakDiff > 0) {
+        setTimeout(() => {
+          setDisplayStreak(currentStreak);
+          // Pop the streak badge
+          Animated.sequence([
+            Animated.spring(streakScaleAnim, {
+              toValue: 1.35, tension: 200, friction: 5, useNativeDriver: true,
+            }),
+            Animated.spring(streakScaleAnim, {
+              toValue: 1, tension: 120, friction: 6, useNativeDriver: true,
+            }),
+          ]).start();
+        }, 400);
+      }
     }, 700);
 
     // Auto-navigate after 3.5s
@@ -178,14 +248,11 @@ export default function AlarmCompleteScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  const disciplineScore = data.disciplineScore;
-
   return (
     <LinearGradient
       colors={['#0F0F0F', '#0D1A00', '#0F0F0F']}
       style={[styles.container, { paddingTop: topPad }]}
     >
-      {/* Confetti layer */}
       <Confetti />
 
       {/* Ripple rings */}
@@ -219,11 +286,11 @@ export default function AlarmCompleteScreen() {
         <View style={styles.textGroup}>
           <Text style={styles.title}>Wake Up Completed</Text>
           <Text style={styles.subtitle}>
-            {data.currentStreak > 1
-              ? `${data.currentStreak} day streak — keep going.`
-              : data.currentStreak === 1
-              ? "First day down. Build on it."
-              : "Great start! Keep going."}
+            {currentStreak > 1
+              ? `${currentStreak} day streak — keep going.`
+              : currentStreak === 1
+              ? 'First day down. Build on it.'
+              : 'Great start! Keep going.'}
           </Text>
         </View>
 
@@ -231,16 +298,22 @@ export default function AlarmCompleteScreen() {
         <Animated.View
           style={[styles.statsRow, { transform: [{ scale: scorePillAnim }], opacity: scorePillAnim }]}
         >
-          <View style={styles.statPill}>
+          {/* Streak pill with pop */}
+          <Animated.View
+            style={[styles.statPill, { transform: [{ scale: streakScaleAnim }] }]}
+          >
             <Feather name="trending-up" size={15} color={Colors.primary} />
             <Text style={styles.statLabel}>Streak</Text>
-            <Text style={styles.statValue}>{data.currentStreak}d</Text>
-          </View>
+            <Text style={styles.statValue}>{displayStreak}d</Text>
+          </Animated.View>
 
+          {/* Score pill with counter */}
           <View style={[styles.statPill, styles.statPillGreen]}>
             <Feather name="award" size={15} color="#00C896" />
             <Text style={[styles.statLabel, { color: '#00C896' }]}>Discipline</Text>
-            <Text style={[styles.statValue, { color: '#00C896' }]}>+5 → {disciplineScore}</Text>
+            <Text style={[styles.statValue, { color: '#00C896' }]}>
+              +5 → {displayScore}
+            </Text>
           </View>
         </Animated.View>
       </Animated.View>
