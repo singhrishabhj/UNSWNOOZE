@@ -44,6 +44,10 @@ export default function WakeTaskScreen() {
     }, 600);
   };
 
+  const handleGiveUp = () => {
+    router.replace({ pathname: '/alarm/failure', params: { alarmId } });
+  };
+
   /* ─── Face task ─── */
   if (task === 'face') {
     return (
@@ -57,6 +61,11 @@ export default function WakeTaskScreen() {
             onVerified={handleSuccess}
             onFailed={() => {/* FaceLivenessCheck handles retry internally */}}
           />
+        </View>
+        <View style={styles.giveUpRow}>
+          <Pressable onPress={handleGiveUp} style={styles.giveUpBtn}>
+            <Text style={styles.giveUpText}>Give Up</Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -117,6 +126,9 @@ export default function WakeTaskScreen() {
               <Feather name="camera" size={20} color="#fff" />
               <Text style={styles.actionBtnText}>Open Camera</Text>
             </LinearGradient>
+          </Pressable>
+          <Pressable onPress={handleGiveUp} style={styles.giveUpBtn}>
+            <Text style={styles.giveUpText}>Give Up</Text>
           </Pressable>
         </View>
       )}
@@ -230,5 +242,21 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Inter_700Bold',
     color: '#fff',
+  },
+  giveUpRow: {
+    alignItems: 'center',
+    paddingBottom: 20,
+  },
+  giveUpBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  giveUpText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.3)',
   },
 });

@@ -141,8 +141,7 @@ export default function HomeScreen() {
   const bg = colors.background;
   const cardBg = isDark ? colors.surface : colors.card;
 
-  // Discipline score: 5 pts per streak day, capped at 100
-  const disciplineScore = Math.min(100, data.currentStreak * 5);
+  const disciplineScore = data.disciplineScore;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
@@ -155,12 +154,15 @@ export default function HomeScreen() {
 
           {/* Header */}
           <View style={styles.header}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={[styles.greeting, { color: colors.textSecondary }]}>
                 {getGreeting()}
               </Text>
               <Text style={[styles.headerTitle, { color: isDark ? '#fff' : '#111' }]}>
                 UNSNWOOZE
+              </Text>
+              <Text style={[styles.headerTagline, { color: colors.textMuted }]}>
+                Wake up like you mean it.
               </Text>
             </View>
             {disciplineScore > 0 && (
@@ -287,6 +289,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Inter_700Bold',
     letterSpacing: -0.5,
+  },
+  headerTagline: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    marginTop: 1,
+    letterSpacing: 0.1,
   },
   scorePill: {
     flexDirection: 'row',

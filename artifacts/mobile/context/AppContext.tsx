@@ -32,6 +32,7 @@ export interface AppData {
   bestStreak: number;
   totalWakeUps: number;
   totalSnoozes: number;
+  disciplineScore: number;
   lastWakeDate: string | null;
   onboardingComplete: boolean;
   theme: 'light' | 'dark' | 'system';
@@ -52,6 +53,7 @@ const DEFAULT_DATA: AppData = {
   bestStreak: 0,
   totalWakeUps: 0,
   totalSnoozes: 0,
+  disciplineScore: 0,
   lastWakeDate: null,
   onboardingComplete: false,
   theme: 'system',
@@ -93,6 +95,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Migrate old saves that lack new fields
         if (parsed.totalWakeUps === undefined) parsed.totalWakeUps = 0;
         if (parsed.totalSnoozes === undefined) parsed.totalSnoozes = 0;
+        if (parsed.disciplineScore === undefined) parsed.disciplineScore = Math.min(100, parsed.currentStreak * 5);
         setData(parsed);
         updateAchievements(parsed.currentStreak, parsed.totalWakeUps);
       }
@@ -168,6 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentStreak: newStreak,
         bestStreak: Math.max(prev.bestStreak, newStreak),
         totalWakeUps: prev.totalWakeUps + 1,
+        disciplineScore: Math.min(100, prev.disciplineScore + 5),
         lastWakeDate: today,
       };
     });
@@ -181,6 +185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     update(prev => ({
       ...prev,
       currentStreak: 0,
+      disciplineScore: Math.max(0, prev.disciplineScore - 5),
     }));
   }, [update]);
 
