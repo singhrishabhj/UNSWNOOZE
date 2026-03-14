@@ -52,6 +52,10 @@ export default function AlarmTriggerScreen() {
   const speakLoopRef = useRef<(() => void) | null>(null);
   // Whether this alarm instance resolved to voice mode (captured at mount).
   const isVoiceModeRef = useRef(false);
+  // Set to true right before router.replace('/alarm/task') so the standard-mode
+  // useEffect cleanup knows NOT to stop the alarm (which must keep ringing
+  // through the task screen until task.tsx calls stopAlarm()).
+  const navigatingToTaskRef = useRef(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -155,7 +159,15 @@ export default function AlarmTriggerScreen() {
       };
     }
 
+    // Standard mode cleanup: stop the alarm sound if the screen unmounts for
+    // any reason OTHER than intentional navigation to the task screen.
+    // When the user taps "Wake Up Now", navigatingToTaskRef is set to true
+    // first so we leave the alarm ringing through task.tsx (which stops it
+    // explicitly via stopAlarm() in handleSuccess / handleGiveUp).
     return () => {
+      if (!navigatingToTaskRef.current) {
+        stopAlarm();
+      }
       if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,12 +199,13 @@ export default function AlarmTriggerScreen() {
         setSnoozed(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-        // Restart whichever mode was active before snooze
+        // Restart whichever mode was active before snooze.
+        // Voice mode: re-enable the loop flag and resume speaking on both
+        // native AND web (the old Platform.OS !== 'web' guard caused web to
+        // stay silent for the rest of the alarm after a snooze).
         if (isVoiceModeRef.current) {
-          if (Platform.OS !== 'web') {
-            speechStoppedRef.current = false;
-            setTimeout(() => speakLoopRef.current?.(), 500);
-          }
+          speechStoppedRef.current = false;
+          setTimeout(() => speakLoopRef.current?.(), 500);
         } else {
           startAlarm();
         }
@@ -202,6 +215,9 @@ export default function AlarmTriggerScreen() {
 
   const handleCompleteTask = useCallback(() => {
     if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
+    // Mark intentional navigation so the standard-mode cleanup does NOT
+    // call stopAlarm() — the alarm must keep ringing through the task screen.
+    navigatingToTaskRef.current = true;
     // Speech stops here; alarm SOUND keeps ringing through the task screen
     // and is stopped only by task.tsx on success or give-up.
     stopSpeech();

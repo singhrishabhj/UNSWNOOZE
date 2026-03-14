@@ -1,0 +1,209 @@
+You are a **senior React Native + Expo engineer debugging the alarm engine** in a production app.
+
+Project: **UNSNWOOZE**
+
+Framework:
+
+• Expo
+• React Native
+• Expo Router
+
+UNSNWOOZE is an alarm application where the alarm rings and the user must **complete a wake-up task to stop it**.
+
+Currently the alarm system has multiple issues that must be fixed.
+
+IMPORTANT RULES:
+
+• Do NOT rewrite the whole project
+• Only modify files related to the alarm system
+• Keep dependencies minimal
+• Ensure the alarm works reliably on Android and iOS
+• Ensure the app never crashes
+
+---
+
+# PROBLEM 1 — Alarm Not Ringing Correctly
+
+Sometimes the alarm does not start when the scheduled time arrives.
+
+Fix the alarm trigger so that when the scheduled time fires:
+
+• alarm starts immediately
+• alarm sound begins playing
+• alarm screen opens
+
+---
+
+# PROBLEM 2 — Alarm Stops Too Early
+
+Currently the alarm stops automatically after some time.
+
+This must NOT happen.
+
+Required behavior:
+
+The alarm must **ring continuously until the wake-up task is completed**.
+
+Correct flow:
+
+Alarm triggers
+→ start alarm sound
+→ user completes task
+→ stop alarm sound
+
+The alarm must NOT stop due to:
+
+• screen navigation
+• component re-render
+• timer ending
+• state refresh
+
+---
+
+# PROBLEM 3 — Alarm Must Loop
+
+The alarm sound must **loop continuously**.
+
+Requirements:
+
+• audio must loop forever
+• alarm should remain active
+• prevent multiple loop instances starting
+
+Use a persistent audio reference so the sound does not restart repeatedly.
+
+---
+
+# PROBLEM 4 — Speak Title Mode Not Working
+
+The alarm system has two sound modes:
+
+1️⃣ **Standard Alarm**
+
+• play normal alarm sound
+• sound loops continuously
+
+2️⃣ **Speak Title**
+
+• instead of alarm sound
+• speak the alarm title repeatedly
+
+Example:
+
+Alarm title:
+
+"Wake up for morning workout"
+
+When alarm triggers the phone should say:
+
+"Wake up for morning workout"
+"Wake up for morning workout"
+"Wake up for morning workout"
+
+Until the task is completed.
+
+Use:
+
+expo-speech
+
+Speech must:
+
+• repeat automatically
+• stop only when task completes
+• not create infinite recursion crashes
+
+---
+
+# REQUIRED SOUND MODE LOGIC
+
+When alarm triggers:
+
+IF soundMode == "standard"
+
+→ start looping alarm sound
+
+IF soundMode == "speak_title"
+
+→ start repeating text-to-speech
+
+if snoozed pause till the time of snooze then repeats the alarm with same tone
+
+---
+
+# PROBLEM 5 — Alarm Stop Logic
+
+Alarm must stop **only when the wake-up task is completed**.
+
+When task completion handler runs:
+
+• stop audio playback
+• stop speech
+• clear alarm state
+
+Example:
+
+stopAlarm()
+
+Inside stopAlarm:
+
+Audio.stopAsync()
+Speech.stop()
+
+---
+
+# EDGE CASE SAFETY
+
+Handle these safely:
+
+• empty alarm title
+• missing soundMode value
+• multiple alarm triggers
+• screen unmounting
+• user navigating screens
+
+Fallback rule:
+
+If title is empty → use standard alarm sound.
+
+---
+
+# PERFORMANCE REQUIREMENTS
+
+Ensure:
+
+• no multiple alarm loops
+• no memory leaks
+• no infinite re-renders
+• no duplicate audio instances
+
+---
+
+# DEBUG REQUIREMENT
+
+Trace the alarm flow:
+
+Alarm Creation
+→ Alarm Scheduling
+→ Alarm Trigger
+→ Sound Mode Check
+→ Alarm Start
+→ Task Completion
+→ Alarm Stop
+
+Fix any step where the flow breaks.
+
+---
+
+# EXPECTED OUTPUT
+
+Provide:
+
+1. Files that must be modified
+2. Correct alarm trigger logic
+3. Correct looping sound implementation
+4. Correct speech loop implementation
+5. Safe stop logic for alarm
+
+Do NOT regenerate the entire project.
+
+Focus only on fixing the **alarm engine behavior in the existing UNSNWOOZE codebase**.
