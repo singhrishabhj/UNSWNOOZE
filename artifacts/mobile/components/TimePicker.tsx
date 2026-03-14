@@ -1,11 +1,5 @@
-/**
- * TimePicker.tsx
- * Unified drum-roll time picker for web and native.
- * Uses React Native ScrollView with snapToInterval — no imperative DOM hacks.
- * Shows HH / MM scroll columns + AM/PM segmented control, always visible.
- */
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -19,95 +13,91 @@ import {
 import { Colors } from '@/constants/colors';
 import { useTheme } from '@/hooks/useTheme';
 
-const ITEM_H = 60;
-const VISIBLE = 5;
-const PICKER_H = ITEM_H * VISIBLE;
+const ITEM_HEIGHT = 56;
+const VISIBLE_ITEMS = 5;
+const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 
-const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
-const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
-
-// ─── Single scroll column ─────────────────────────────────────────────────────
-interface ColumnProps {
+interface DrumColumnProps {
   items: string[];
   selectedIndex: number;
   onSelect: (index: number) => void;
-  textColor: string;
-  mutedColor: string;
+  isDark: boolean;
+  colors: any;
 }
 
-function DrumColumn({ items, selectedIndex, onSelect, textColor, mutedColor }: ColumnProps) {
+function DrumColumn({ items, selectedIndex, onSelect, isDark, colors }: DrumColumnProps) {
   const scrollRef = useRef<ScrollView>(null);
   const lastIndex = useRef(selectedIndex);
-  const isDragging = useRef(false);
 
   const scrollToIndex = useCallback((index: number, animated = true) => {
-    scrollRef.current?.scrollTo({ y: index * ITEM_H, animated });
+    scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated });
   }, []);
 
-  // Initial scroll — no animation, slight delay for layout
-  useEffect(() => {
-    const t = setTimeout(() => scrollToIndex(selectedIndex, false), 80);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    const timer = setTimeout(() => scrollToIndex(selectedIndex, false), 50);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Sync external changes (e.g. AM→PM flipping the hour)
-  useEffect(() => {
-    if (!isDragging.current && lastIndex.current !== selectedIndex) {
-      scrollToIndex(selectedIndex, true);
+  React.useEffect(() => {
+    if (lastIndex.current !== selectedIndex) {
+      scrollToIndex(selectedIndex);
       lastIndex.current = selectedIndex;
     }
-  }, [selectedIndex, scrollToIndex]);
+  }, [selectedIndex]);
 
-  const commit = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    isDragging.current = false;
+  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
-    const index = Math.max(0, Math.min(Math.round(y / ITEM_H), items.length - 1));
-    scrollToIndex(index);
-    if (index !== lastIndex.current) {
-      lastIndex.current = index;
-      onSelect(index);
-      if (Platform.OS !== 'web') Haptics.selectionAsync();
+    const index = Math.round(y / ITEM_HEIGHT);
+    const clamped = Math.max(0, Math.min(index, items.length - 1));
+    if (clamped !== lastIndex.current) {
+      lastIndex.current = clamped;
+      onSelect(clamped);
+      if (Platform.OS !== 'web') {
+        Haptics.selectionAsync();
+      }
     }
+    scrollToIndex(clamped);
   };
 
-  return (
-    <View style={styles.columnWrap}>
-      {/* Selection highlight */}
-      <View style={styles.selBar} pointerEvents="none" />
+  const textColor = isDark ? '#fff' : '#111';
+  const mutedColor = isDark ? colors.textMuted : colors.textMuted;
 
+  return (
+    <View style={styles.drumColumn}>
+      <View style={[styles.selectionBar, { borderColor: Colors.primary, backgroundColor: 'rgba(255,107,0,0.08)' }]} pointerEvents="none" />
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
+        snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
-        bounces={false}
+        onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={handleScrollEnd}
+        contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * 2 }}
         scrollEventThrottle={16}
-        onScrollBeginDrag={() => { isDragging.current = true; }}
-        onMomentumScrollEnd={commit}
-        onScrollEndDrag={commit}
-        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
       >
-        {items.map((label, i) => {
-          const dist = Math.abs(i - selectedIndex);
+        {items.map((item, i) => {
+          const isSelected = i === selectedIndex;
+          const distance = Math.abs(i - selectedIndex);
+          const opacity = distance === 0 ? 1 : distance === 1 ? 0.5 : 0.25;
+          const scale = distance === 0 ? 1 : distance === 1 ? 0.88 : 0.76;
+          const fontSize = isSelected ? 36 : distance === 1 ? 28 : 22;
           return (
             <Pressable
               key={i}
-              onPress={() => { onSelect(i); scrollToIndex(i); }}
+              onPress={() => {
+                onSelect(i);
+                scrollToIndex(i);
+              }}
               style={styles.drumItem}
             >
-              <Text
-                style={[
-                  styles.drumText,
-                  {
-                    fontSize: dist === 0 ? 40 : dist === 1 ? 28 : dist === 2 ? 20 : 16,
-                    opacity: dist === 0 ? 1 : dist === 1 ? 0.45 : dist === 2 ? 0.2 : 0.07,
-                    color: dist === 0 ? textColor : mutedColor,
-                    fontFamily: dist === 0 ? 'Inter_700Bold' : 'Inter_400Regular',
-                  },
-                ]}
-              >
-                {label}
+              <Text style={[styles.drumItemText, {
+                fontSize,
+                opacity,
+                color: isSelected ? (isDark ? '#fff' : '#111') : mutedColor,
+                fontFamily: isSelected ? 'Inter_700Bold' : 'Inter_400Regular',
+                transform: [{ scale }],
+              }]}>
+                {item}
               </Text>
             </Pressable>
           );
@@ -117,11 +107,13 @@ function DrumColumn({ items, selectedIndex, onSelect, textColor, mutedColor }: C
   );
 }
 
-// ─── TimePicker ───────────────────────────────────────────────────────────────
 interface TimePickerProps {
   value: Date;
   onChange: (date: Date) => void;
 }
+
+const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
 export function TimePicker({ value, onChange }: TimePickerProps) {
   const { isDark, colors } = useTheme();
@@ -131,13 +123,12 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
   const hour12 = rawHour % 12 || 12;
   const minute = value.getMinutes();
 
-  const textColor = isDark ? '#ffffff' : '#111111';
-  const mutedColor = isDark ? '#555555' : '#aaaaaa';
-  const surfaceBg = isDark ? colors.surfaceElevated : colors.surface;
+  const hourIndex = hour12 - 1;
+  const minuteIndex = minute;
 
   const setHour = (index: number) => {
     const h12 = index + 1;
-    const h24 = isPM ? (h12 === 12 ? 12 : h12 + 12) : (h12 === 12 ? 0 : h12);
+    const h24 = isPM ? (h12 % 12) + 12 : h12 % 12;
     const d = new Date(value);
     d.setHours(h24, value.getMinutes(), 0, 0);
     onChange(d);
@@ -149,149 +140,142 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
     onChange(d);
   };
 
-  const setAMPM = (pm: boolean) => {
-    if (pm === isPM) return;
+  const toggleAMPM = () => {
     const d = new Date(value);
     const h = value.getHours();
-    d.setHours(pm ? (h % 12) + 12 : h % 12, value.getMinutes(), 0, 0);
+    d.setHours(h >= 12 ? h - 12 : h + 12, value.getMinutes(), 0, 0);
     onChange(d);
-    if (Platform.OS !== 'web') Haptics.selectionAsync();
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
   };
 
-  return (
-    <View style={styles.root}>
+  const sepColor = isDark ? colors.textMuted : colors.textMuted;
 
-      {/* ── Scroll columns ── */}
-      <View style={styles.row}>
+  return (
+    <View style={styles.container}>
+      <View style={styles.pickerRow}>
         <DrumColumn
           items={HOURS}
-          selectedIndex={hour12 - 1}
+          selectedIndex={hourIndex}
           onSelect={setHour}
-          textColor={textColor}
-          mutedColor={mutedColor}
+          isDark={isDark}
+          colors={colors}
         />
 
-        <View style={styles.colon}>
-          <Text style={[styles.colonText, { color: Colors.primary }]}>:</Text>
+        <View style={styles.separator}>
+          <Text style={[styles.separatorText, { color: Colors.primary }]}>:</Text>
         </View>
 
         <DrumColumn
           items={MINUTES}
-          selectedIndex={minute}
+          selectedIndex={minuteIndex}
           onSelect={setMinute}
-          textColor={textColor}
-          mutedColor={mutedColor}
+          isDark={isDark}
+          colors={colors}
         />
+
+        <Pressable
+          onPress={toggleAMPM}
+          style={({ pressed }) => [
+            styles.ampmToggle,
+            {
+              backgroundColor: pressed
+                ? 'rgba(255,107,0,0.2)'
+                : 'rgba(255,107,0,0.1)',
+              borderColor: Colors.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.ampmText, { color: Colors.primary }]}>
+            {isPM ? 'PM' : 'AM'}
+          </Text>
+        </Pressable>
       </View>
 
-      {/* ── Column labels ── */}
-      <View style={styles.labelsRow}>
-        <Text style={[styles.lbl, { color: mutedColor, width: 90 }]}>HH</Text>
-        <View style={{ width: 40 }} />
-        <Text style={[styles.lbl, { color: mutedColor, width: 90 }]}>MM</Text>
-      </View>
-
-      {/* ── AM / PM segmented control ── */}
-      <View style={[styles.ampmTrack, { backgroundColor: surfaceBg }]}>
-        {(['AM', 'PM'] as const).map((seg) => {
-          const active = seg === (isPM ? 'PM' : 'AM');
-          return (
-            <Pressable
-              key={seg}
-              onPress={() => setAMPM(seg === 'PM')}
-              style={[styles.ampmSeg, active && { backgroundColor: Colors.primary }]}
-            >
-              <Text style={[styles.ampmTxt, { color: active ? '#fff' : mutedColor }]}>
-                {seg}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.labels}>
+        <Text style={[styles.labelText, { color: isDark ? colors.textMuted : colors.textMuted }]}>HH</Text>
+        <View style={{ width: 28 }} />
+        <Text style={[styles.labelText, { color: isDark ? colors.textMuted : colors.textMuted }]}>MM</Text>
+        <View style={{ width: 72 }} />
       </View>
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: {
+  container: {
     alignItems: 'center',
-    gap: 8,
     width: '100%',
   },
-  row: {
+  pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: PICKER_H,
+    height: PICKER_HEIGHT,
+    gap: 4,
   },
-  columnWrap: {
-    width: 90,
-    height: PICKER_H,
+  drumColumn: {
+    width: 80,
+    height: PICKER_HEIGHT,
     overflow: 'hidden',
     position: 'relative',
   },
-  selBar: {
+  selectionBar: {
     position: 'absolute',
+    top: ITEM_HEIGHT * 2,
     left: 0,
     right: 0,
-    top: ITEM_H * 2,
-    height: ITEM_H,
+    height: ITEM_HEIGHT,
     borderTopWidth: 1.5,
     borderBottomWidth: 1.5,
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(255,107,0,0.08)',
-    borderRadius: 10,
     zIndex: 1,
-    pointerEvents: 'none',
+    borderRadius: 8,
   },
   drumItem: {
-    height: ITEM_H,
+    height: ITEM_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  drumText: {
-    letterSpacing: -1.5,
+  drumItemText: {
+    letterSpacing: -1,
     includeFontPadding: false,
   },
-  colon: {
-    width: 40,
+  separator: {
+    width: 28,
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 4,
   },
-  colonText: {
-    fontSize: 38,
+  separatorText: {
+    fontSize: 36,
     fontFamily: 'Inter_700Bold',
     letterSpacing: -1,
   },
-  labelsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
+  ampmToggle: {
+    marginLeft: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignSelf: 'center',
   },
-  lbl: {
-    fontSize: 11,
-    fontFamily: 'Inter_500Medium',
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  ampmTrack: {
-    flexDirection: 'row',
-    borderRadius: 28,
-    padding: 4,
-    marginTop: 10,
-    gap: 2,
-  },
-  ampmSeg: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ampmTxt: {
+  ampmText: {
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
     letterSpacing: 1,
+  },
+  labels: {
+    flexDirection: 'row',
+    marginTop: 6,
+    gap: 4,
+    alignItems: 'center',
+    paddingLeft: 20,
+  },
+  labelText: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 2,
+    width: 80,
+    textAlign: 'center',
   },
 });
