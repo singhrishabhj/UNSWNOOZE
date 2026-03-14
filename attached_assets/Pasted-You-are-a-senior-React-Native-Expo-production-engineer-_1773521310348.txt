@@ -1,0 +1,252 @@
+You are a **senior React Native + Expo production engineer**.
+
+You are working on an existing Expo React Native alarm application called **UNSNWOOZE**.
+
+IMPORTANT RULES:
+
+• Do NOT rewrite the entire project
+• Do NOT generate new architecture
+• Only modify the files necessary to fix bugs
+• Keep dependencies minimal
+• Keep bundle size small
+• Ensure the app runs reliably on **Android and iOS**
+• Prioritize **stability, performance, and low compute cost**
+
+---
+
+# Project Context
+
+UNSNWOOZE is an **alarm app where the user must wake up and complete a task**.
+The app uses **Expo + React Native + Expo Router**.
+
+Main feature flow:
+
+1. User creates alarm
+2. Alarm schedules
+3. Alarm rings
+4. Alarm speaks the alarm title
+5. User must complete a wake-up task
+
+Currently the app **has crashes and alarm reliability issues**.
+
+Your task is to **stabilize the system and make it production-ready.**
+
+---
+
+# Critical Issues To Fix
+
+## 1 Alarm Not Triggering
+
+The alarm does not ring at the scheduled time.
+
+Fix this by implementing a **reliable scheduling system** using:
+
+expo-notifications
+
+Requirements:
+
+• Alarm must trigger at scheduled time
+• Works in foreground and background
+• Works on Android and iOS
+• Plays alarm sound
+• Shows notification
+
+Ensure alarms persist using:
+
+AsyncStorage
+
+---
+
+# 2 Alarm Sound + Speech
+
+When the alarm triggers:
+
+1. Alarm sound must play
+2. App must speak the alarm title
+
+Example:
+
+Alarm Title: "Morning Workout"
+
+Expected behavior:
+
+Alarm rings
+Sound plays
+Speech says: "Morning Workout"
+
+Use:
+
+expo-speech
+
+Ensure:
+
+• speech starts after sound begins
+• speech does not repeat infinitely
+• no crashes if title is empty
+
+---
+
+# 3 Android Crashes
+
+Current errors:
+
+Route "./alarm/task.tsx" is missing the required default export
+
+Fix by ensuring this file exports a component:
+
+export default function AlarmTaskScreen() {
+return <View />;
+}
+
+---
+
+# 4 Router Structure Error
+
+Error:
+
+No route named "alarm/task" exists
+
+Fix router structure to match the file system.
+
+Expected structure:
+
+app/
+
+index.tsx
+
+onboarding.tsx
+
+alarm/
+
+create.tsx
+
+trigger.tsx
+
+task.tsx
+
+complete.tsx
+
+failure.tsx
+
+Ensure navigation references match the actual file paths.
+
+---
+
+# 5 Remove Deprecated Libraries
+
+The project uses deprecated packages causing crashes.
+
+Remove:
+
+expo-face-detector
+
+Error currently:
+
+Cannot find native module 'ExpoFaceDetector'
+
+Fix:
+
+• remove dependency
+• remove all imports
+• remove unused liveness logic
+
+If camera validation is required, use only:
+
+expo-camera
+
+Do NOT install heavy libraries.
+
+---
+
+# 6 Replace Deprecated expo-av
+
+expo-av is deprecated.
+
+Only migrate the parts used for alarm sound playback to:
+
+expo-audio
+
+Do NOT change unrelated media logic.
+
+---
+
+# 7 Alarm Time Picker Issues
+
+Problems:
+
+Android
+• picker freezes or lags
+
+iOS
+• picker state does not update correctly
+
+Fix by:
+
+• ensuring controlled component state
+• avoiding unnecessary re-renders
+• using stable cross-platform picker behavior
+
+---
+
+# 8 Prevent Crash Scenarios
+
+Add safeguards for:
+
+• missing permissions
+• invalid alarm time
+• empty alarm title
+• multiple alarms firing simultaneously
+• camera permission denied
+
+The app must fail gracefully without crashing.
+
+---
+
+# 9 Alarm Persistence
+
+Ensure alarms survive:
+
+• app restart
+• app reload
+• device sleep
+
+Use:
+
+AsyncStorage
+
+Store:
+
+alarm id
+time
+title
+status
+
+Restore alarms on app launch.
+
+---
+
+# 10 Performance Improvements
+
+While fixing bugs:
+
+• remove unused imports
+• remove dead code
+• reduce unnecessary re-renders
+• keep bundle size small
+• avoid adding heavy libraries
+
+---
+
+# Expected Output
+
+Provide:
+
+1. Files that must be modified
+2. Corrected code snippets
+3. Any dependency changes
+4. Explanation of fixes
+5. Steps to test the alarm system
+
+Do NOT regenerate the entire project.
+
+Focus only on stabilizing the existing UNSNWOOZE application.

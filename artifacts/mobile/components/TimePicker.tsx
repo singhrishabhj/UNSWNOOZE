@@ -17,6 +17,10 @@ const ITEM_HEIGHT = 56;
 const VISIBLE_ITEMS = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 
+// Android fires onScrollEndDrag before momentum fully settles.
+// Debounce the handler so only the last event is acted upon.
+const DEBOUNCE_MS = Platform.OS === 'android' ? 120 : 0;
+
 interface DrumColumnProps {
   items: string[];
   selectedIndex: number;
@@ -28,52 +32,76 @@ interface DrumColumnProps {
 function DrumColumn({ items, selectedIndex, onSelect, isDark, colors }: DrumColumnProps) {
   const scrollRef = useRef<ScrollView>(null);
   const lastIndex = useRef(selectedIndex);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToIndex = useCallback((index: number, animated = true) => {
     scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated });
   }, []);
 
+  // Initial scroll position — no animation
   React.useEffect(() => {
     const timer = setTimeout(() => scrollToIndex(selectedIndex, false), 50);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sync programmatic value changes (e.g. "Test +1 min" button)
   React.useEffect(() => {
     if (lastIndex.current !== selectedIndex) {
       scrollToIndex(selectedIndex);
       lastIndex.current = selectedIndex;
     }
-  }, [selectedIndex]);
+  }, [selectedIndex, scrollToIndex]);
 
-  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = e.nativeEvent.contentOffset.y;
-    const index = Math.round(y / ITEM_HEIGHT);
-    const clamped = Math.max(0, Math.min(index, items.length - 1));
-    if (clamped !== lastIndex.current) {
-      lastIndex.current = clamped;
-      onSelect(clamped);
+  // Shared scroll-settle handler with debounce for Android
+  const handleSettle = useCallback((y: number) => {
+    const index = Math.max(0, Math.min(Math.round(y / ITEM_HEIGHT), items.length - 1));
+    // Always snap to nearest item
+    scrollToIndex(index);
+    if (index !== lastIndex.current) {
+      lastIndex.current = index;
+      onSelect(index);
       if (Platform.OS !== 'web') {
         Haptics.selectionAsync();
       }
     }
-    scrollToIndex(clamped);
-  };
+  }, [items.length, onSelect, scrollToIndex]);
+
+  const scheduleSettle = useCallback((y: number) => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    if (DEBOUNCE_MS > 0) {
+      debounceTimer.current = setTimeout(() => handleSettle(y), DEBOUNCE_MS);
+    } else {
+      handleSettle(y);
+    }
+  }, [handleSettle]);
+
+  const onScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scheduleSettle(e.nativeEvent.contentOffset.y);
+  }, [scheduleSettle]);
 
   const textColor = isDark ? '#fff' : '#111';
-  const mutedColor = isDark ? colors.textMuted : colors.textMuted;
+  const mutedColor = colors.textMuted;
 
   return (
     <View style={styles.drumColumn}>
-      <View style={[styles.selectionBar, { borderColor: Colors.primary, backgroundColor: 'rgba(255,107,0,0.08)' }]} pointerEvents="none" />
+      <View
+        style={[styles.selectionBar, { borderColor: Colors.primary, backgroundColor: 'rgba(255,107,0,0.08)' }]}
+        pointerEvents="none"
+      />
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
-        onMomentumScrollEnd={handleScrollEnd}
-        onScrollEndDrag={handleScrollEnd}
+        onMomentumScrollEnd={onScrollEnd}
+        onScrollEndDrag={onScrollEnd}
         contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * 2 }}
         scrollEventThrottle={16}
+        // Prevent interference from parent scroll views on Android
+        nestedScrollEnabled
       >
         {items.map((item, i) => {
           const isSelected = i === selectedIndex;
@@ -93,7 +121,7 @@ function DrumColumn({ items, selectedIndex, onSelect, isDark, colors }: DrumColu
               <Text style={[styles.drumItemText, {
                 fontSize,
                 opacity,
-                color: isSelected ? (isDark ? '#fff' : '#111') : mutedColor,
+                color: isSelected ? textColor : mutedColor,
                 fontFamily: isSelected ? 'Inter_700Bold' : 'Inter_400Regular',
                 transform: [{ scale }],
               }]}>
@@ -126,21 +154,22 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
   const hourIndex = hour12 - 1;
   const minuteIndex = minute;
 
-  const setHour = (index: number) => {
+  const setHour = useCallback((index: number) => {
     const h12 = index + 1;
-    const h24 = isPM ? (h12 % 12) + 12 : h12 % 12;
+    // Preserve AM/PM when user scrolls hour column
+    const h24 = isPM ? (h12 === 12 ? 12 : h12 + 12) : h12 === 12 ? 0 : h12;
     const d = new Date(value);
     d.setHours(h24, value.getMinutes(), 0, 0);
     onChange(d);
-  };
+  }, [isPM, value, onChange]);
 
-  const setMinute = (index: number) => {
+  const setMinute = useCallback((index: number) => {
     const d = new Date(value);
     d.setMinutes(index, 0, 0);
     onChange(d);
-  };
+  }, [value, onChange]);
 
-  const toggleAMPM = () => {
+  const toggleAMPM = useCallback(() => {
     const d = new Date(value);
     const h = value.getHours();
     d.setHours(h >= 12 ? h - 12 : h + 12, value.getMinutes(), 0, 0);
@@ -148,9 +177,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
     if (Platform.OS !== 'web') {
       Haptics.selectionAsync();
     }
-  };
-
-  const sepColor = isDark ? colors.textMuted : colors.textMuted;
+  }, [value, onChange]);
 
   return (
     <View style={styles.container}>
@@ -194,9 +221,9 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
       </View>
 
       <View style={styles.labels}>
-        <Text style={[styles.labelText, { color: isDark ? colors.textMuted : colors.textMuted }]}>HH</Text>
+        <Text style={[styles.labelText, { color: colors.textMuted }]}>HH</Text>
         <View style={{ width: 28 }} />
-        <Text style={[styles.labelText, { color: isDark ? colors.textMuted : colors.textMuted }]}>MM</Text>
+        <Text style={[styles.labelText, { color: colors.textMuted }]}>MM</Text>
         <View style={{ width: 72 }} />
       </View>
     </View>

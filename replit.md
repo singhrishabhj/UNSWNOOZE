@@ -46,8 +46,9 @@ Smart alarm app that prevents snooze abuse.
 - **Streak Ring**: Animated circular progress ring showing current/best streak
 - **Alarm List**: Cards with time, title, task type, sound type, and days
 - **Create Alarm**: Full alarm configuration with time picker, repeat days, wake task selection, sound type
-- **Alarm Trigger**: Full-screen alarm interface with voice alarm (Web Speech API)
-- **Wake-Up Tasks**: Face verification (camera selfie + simulated detection), Toothpaste photo verification
+- **Alarm Trigger**: Full-screen alarm with looping expo-audio sound + expo-speech TTS reads alarm title 1.2 s after ring
+- **Background Alarm**: expo-notifications schedules local notifications for each enabled alarm; tapping notification opens trigger screen
+- **Wake-Up Tasks**: Face liveness check (timer-guided camera: look → turn left → turn right → blink), Toothpaste photo verification
 - **Completion Screen**: Expanding ring animation, streak update, auto-returns to dashboard
 - **Gamification**: Achievement badges (Sleepy Panda, Early Bird, Morning Warrior, Discipline Master)
 - **Dark/Light Mode**: Smooth theme toggle in settings
@@ -66,6 +67,8 @@ Smart alarm app that prevents snooze abuse.
 - `artifacts/mobile/app/alarm/complete.tsx` — Completion screen
 - `artifacts/mobile/context/AppContext.tsx` — Global state (alarms, streak, weeklyHistory, achievements)
 - `artifacts/mobile/services/storage.ts` — Typed AsyncStorage wrapper (storageService.load/save)
+- `artifacts/mobile/services/alarmSound.ts` — Alarm audio singleton (expo-audio on native, WebAudio on web; loop/stop API)
+- `artifacts/mobile/services/notificationService.ts` — expo-notifications scheduler; syncAlarmNotifications() cancels+reschedules on every alarm change; IDs stored in AsyncStorage key `@unsnwooze_notif_ids`
 - `artifacts/mobile/components/DigitalClock.tsx` — Animated digit clock (single setInterval, cleanup on unmount)
 - `artifacts/mobile/components/StreakRing.tsx` — Circular streak progress (React.memo)
 - `artifacts/mobile/components/AlarmCard.tsx` — Alarm list card (React.memo)
@@ -98,5 +101,18 @@ Smart alarm app that prevents snooze abuse.
 - `DigitalClock`: single `setInterval` cleared on unmount
 - Root layout has no QueryClientProvider or KeyboardProvider (removed — unused)
 
+### Alarm Scheduling Architecture
+1. **Foreground**: `useAlarmScheduler` hook polls every 5 s; navigates to `/alarm/trigger` when clock matches
+2. **Background / closed**: `expo-notifications` local notifications fired by the OS; tapping opens app and navigates to trigger via `addNotificationResponseReceivedListener` in `_layout.tsx`
+3. **Sound**: `startAlarm()` / `stopAlarm()` in `services/alarmSound.ts`; alarm persists across navigation — only silenced in task.tsx on success or give-up
+4. **TTS**: `expo-speech` speaks alarm title 1.2 s after sound starts (native only)
+5. **Notification sync**: `NotificationSync` component in `_layout.tsx` calls `syncAlarmNotifications` whenever `data.alarms` changes
+
+### TimePicker Fix (Android)
+`components/TimePicker.tsx` debounces `onScrollEndDrag` by 120 ms on Android to prevent multiple premature fires. Also: `nestedScrollEnabled` on drum columns, `useCallback` on all handlers.
+
 ### Removed Dependencies (vs original)
-`@tanstack/react-query`, `expo-location`, `react-native-worklets` (re-added as reanimated peer), `@workspace/api-client-react`, `zod`, `zod-validation-error`, `expo-web-browser`, `@react-native-community/datetimepicker`, `expo-image`, `react-native-keyboard-controller`
+`@tanstack/react-query`, `expo-location`, `react-native-worklets` (re-added as reanimated peer), `@workspace/api-client-react`, `zod`, `zod-validation-error`, `expo-web-browser`, `@react-native-community/datetimepicker`, `expo-image`, `react-native-keyboard-controller`, `expo-av` (→ expo-audio), `expo-face-detector` (→ timer-based liveness)
+
+### Added Dependencies (vs original)
+`expo-audio`, `expo-speech`, `expo-notifications`
