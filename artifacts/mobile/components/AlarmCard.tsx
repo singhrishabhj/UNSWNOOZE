@@ -1,6 +1,6 @@
-import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import React, { useRef } from 'react';
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import React, { useRef } from "react";
 import {
   Alert,
   Animated,
@@ -10,12 +10,12 @@ import {
   Switch,
   Text,
   View,
-} from 'react-native';
-import { Colors } from '@/constants/colors';
-import { Alarm } from '@/context/AppContext';
-import { useTheme } from '@/hooks/useTheme';
+} from "react-native";
+import { Colors } from "@/constants/colors";
+import { Alarm } from "@/context/AppContext";
+import { useTheme } from "@/hooks/useTheme";
 
-const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 interface AlarmCardProps {
   alarm: Alarm;
@@ -24,47 +24,67 @@ interface AlarmCardProps {
   onDelete: () => void;
 }
 
-export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps) {
+export const AlarmCard = React.memo(function AlarmCard({
+  alarm,
+  onToggle,
+  onPress,
+  onDelete,
+}: AlarmCardProps) {
   const { isDark, colors } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const formatTime = (timeStr: string) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
+    const [h, m] = timeStr.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
     const hours = (h % 12 || 12).toString();
-    const minutes = m.toString().padStart(2, '0');
+    const minutes = m.toString().padStart(2, "0");
     return { time: `${hours}:${minutes}`, ampm };
   };
 
   const { time, ampm } = formatTime(alarm.time);
 
   const pressIn = () =>
-    Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, tension: 100 }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      tension: 100,
+    }).start();
   const pressOut = () =>
-    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, tension: 100 }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 100,
+    }).start();
 
   const handleDeletePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       // window.confirm is reliable on web; Alert.alert uses it internally but
       // callback mapping can be inconsistent across RN-web versions.
-      if (typeof window !== 'undefined' && window.confirm('Delete this alarm?')) {
+      if (
+        typeof window !== "undefined" &&
+        window.confirm("Delete this alarm?")
+      ) {
         onDelete();
       }
       return;
     }
-    Alert.alert('Delete Alarm', 'Delete this alarm?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: onDelete },
+    Alert.alert("Delete Alarm", "Delete this alarm?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: onDelete },
     ]);
   };
 
   const cardBg = isDark ? colors.surface : colors.card;
   const borderColor = alarm.enabled
-    ? 'rgba(255, 107, 0, 0.2)'
-    : isDark ? colors.border : colors.border;
+    ? "rgba(255, 107, 0, 0.2)"
+    : isDark
+      ? colors.border
+      : colors.border;
   const timeColor = alarm.enabled
-    ? (isDark ? '#fff' : '#111')
+    ? isDark
+      ? "#fff"
+      : "#111"
     : colors.textMuted;
 
   return (
@@ -74,7 +94,7 @@ export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPres
         {
           backgroundColor: cardBg,
           borderColor,
-          shadowColor: alarm.enabled ? Colors.primary : 'transparent',
+          shadowColor: alarm.enabled ? Colors.primary : "transparent",
           transform: [{ scale: scaleAnim }],
         },
       ]}
@@ -88,30 +108,55 @@ export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPres
       >
         <View style={styles.timeRow}>
           <Text style={[styles.time, { color: timeColor }]}>{time}</Text>
-          <Text style={[styles.ampm, { color: alarm.enabled ? Colors.primary : colors.textMuted }]}>
+          <Text
+            style={[
+              styles.ampm,
+              { color: alarm.enabled ? Colors.primary : colors.textMuted },
+            ]}
+          >
             {ampm}
           </Text>
         </View>
-        <Text style={[styles.title, { color: colors.textSecondary }]}>{alarm.title}</Text>
+        <Text style={[styles.title, { color: colors.textSecondary }]}>
+          {alarm.title}
+        </Text>
         <View style={styles.tagsRow}>
-          <View style={[styles.tag, { backgroundColor: isDark ? colors.surfaceElevated : colors.surface }]}>
+          <View
+            style={[
+              styles.tag,
+              {
+                backgroundColor: isDark
+                  ? colors.surfaceElevated
+                  : colors.surface,
+              },
+            ]}
+          >
             <Feather
-              name={alarm.wakeTask === 'face' ? 'smile' : 'package'}
+              name={alarm.wakeTask === "face" ? "smile" : "package"}
               size={11}
               color={Colors.primary}
             />
             <Text style={styles.tagText}>
-              {alarm.wakeTask === 'face' ? 'Face' : 'Toothpaste'}
+              {alarm.wakeTask === "face" ? "Face" : "Toothpaste"}
             </Text>
           </View>
-          <View style={[styles.tag, { backgroundColor: isDark ? colors.surfaceElevated : colors.surface }]}>
+          <View
+            style={[
+              styles.tag,
+              {
+                backgroundColor: isDark
+                  ? colors.surfaceElevated
+                  : colors.surface,
+              },
+            ]}
+          >
             <Feather
-              name={alarm.soundType === 'voice' ? 'mic' : 'volume-2'}
+              name={alarm.soundType === "voice" ? "mic" : "volume-2"}
               size={11}
               color={Colors.primary}
             />
             <Text style={styles.tagText}>
-              {alarm.soundType === 'voice' ? 'Voice' : 'Sound'}
+              {alarm.soundType === "voice" ? "Voice" : "Sound"}
             </Text>
           </View>
         </View>
@@ -125,12 +170,17 @@ export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPres
                   style={[
                     styles.dayDot,
                     {
-                      backgroundColor: active ? Colors.primary : 'transparent',
+                      backgroundColor: active ? Colors.primary : "transparent",
                       borderColor: active ? Colors.primary : colors.border,
                     },
                   ]}
                 >
-                  <Text style={[styles.dayText, { color: active ? '#fff' : colors.textMuted }]}>
+                  <Text
+                    style={[
+                      styles.dayText,
+                      { color: active ? "#fff" : colors.textMuted },
+                    ]}
+                  >
                     {d}
                   </Text>
                 </View>
@@ -150,10 +200,12 @@ export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPres
           }}
           trackColor={{
             false: isDark ? colors.surfaceElevated : colors.surfaceElevated,
-            true: 'rgba(255, 107, 0, 0.4)',
+            true: "rgba(255, 107, 0, 0.4)",
           }}
-          thumbColor={alarm.enabled ? Colors.primary : (isDark ? '#555' : '#ccc')}
-          ios_backgroundColor={isDark ? colors.surfaceElevated : colors.surfaceElevated}
+          thumbColor={alarm.enabled ? Colors.primary : isDark ? "#555" : "#ccc"}
+          ios_backgroundColor={
+            isDark ? colors.surfaceElevated : colors.surfaceElevated
+          }
         />
         <Pressable
           onPress={handleDeletePress}
@@ -162,8 +214,10 @@ export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPres
             styles.deleteBtn,
             {
               backgroundColor: pressed
-                ? 'rgba(255,59,48,0.15)'
-                : isDark ? colors.surfaceElevated : colors.surface,
+                ? "rgba(255,59,48,0.15)"
+                : isDark
+                  ? colors.surfaceElevated
+                  : colors.surface,
             },
           ]}
         >
@@ -176,8 +230,8 @@ export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPres
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 20,
     borderWidth: 1,
     marginBottom: 12,
@@ -185,7 +239,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   left: {
     flex: 1,
@@ -193,40 +247,40 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   right: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 10,
     paddingRight: 14,
     paddingVertical: 18,
   },
   timeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     gap: 4,
   },
   time: {
     fontSize: 36,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: "Inter_700Bold",
     letterSpacing: -1,
     includeFontPadding: false,
   },
   ampm: {
     fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: "Inter_600SemiBold",
     marginBottom: 5,
     letterSpacing: 0.5,
   },
   title: {
     fontSize: 14,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: "Inter_500Medium",
   },
   tagsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginTop: 2,
   },
   tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -234,11 +288,11 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 11,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: "Inter_500Medium",
     color: Colors.primary,
   },
   daysRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 5,
     marginTop: 4,
   },
@@ -247,18 +301,18 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   dayText: {
     fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: "Inter_600SemiBold",
   },
   deleteBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
