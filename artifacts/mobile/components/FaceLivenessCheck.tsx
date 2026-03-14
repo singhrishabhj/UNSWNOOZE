@@ -1,140 +1,239 @@
+/**
+ * FaceLivenessCheck — real-time liveness verification using expo-camera +
+ * expo-face-detector. No shutter button. The camera runs continuously and
+ * the user must complete three steps in order:
+ *   1. A face is detected in the frame.
+ *   2. Turn head LEFT  (yawAngle < −YAW_THRESHOLD)
+ *   3. Turn head RIGHT (yawAngle >  YAW_THRESHOLD)
+ *   4. Blink           (both eye-open probabilities < BLINK_THRESHOLD)
+ *
+ * On web (where expo-face-detector is unavailable) each step is auto-
+ * advanced after a short delay so the flow can still be demonstrated.
+ *
+ * The alarm continues ringing until onVerified() is called by the parent.
+ */
 import { Feather } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useCallback, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as FaceDetector from 'expo-face-detector';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
 
 interface Props {
   onVerified: () => void;
-  onFailed: () => void;
 }
 
-type Phase = 'instructions' | 'camera' | 'verifying' | 'error';
+type Step = 'permission' | 'detecting' | 'turn_left' | 'turn_right' | 'blink' | 'done';
 
-// Rotating hints shown during the liveness check animation
-const HINTS = [
-  'Look directly at the camera',
-  'Eyes open, face clearly visible',
-  'Slight smile — you got this!',
-];
+const YAW_THRESHOLD = 22;   // degrees — comfortable but deliberate head turn
+const BLINK_THRESHOLD = 0.35; // eye-open probability; lower = more closed
+const FRAMES_NEEDED = 3;    // consecutive frames required to advance step
+
+const STEP_LABELS: Record<Step, string> = {
+  permission: 'Camera access needed',
+  detecting:  'Look at the camera',
+  turn_left:  'Turn your head LEFT',
+  turn_right: 'Turn your head RIGHT',
+  blink:      'Blink to stop alarm',
+  done:       'Verified!',
+};
+
+const STEP_ICONS: Record<Step, string> = {
+  permission: 'lock',
+  detecting:  'eye',
+  turn_left:  'arrow-left',
+  turn_right: 'arrow-right',
+  blink:      'check-circle',
+  done:       'check',
+};
+
+const STEPS_IN_ORDER: Step[] = ['detecting', 'turn_left', 'turn_right', 'blink', 'done'];
 
 export const FaceLivenessCheck = React.memo(function FaceLivenessCheck({ onVerified }: Props) {
-  const [phase, setPhase] = useState<Phase>('instructions');
-  const [hintIdx, setHintIdx] = useState(0);
   const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
-  const spinAnim = useRef(new Animated.Value(0)).current;
-  const hintTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [step, setStep] = useState<Step>('detecting');
+  const consecutiveFrames = useRef(0);
+  const stepRef = useRef<Step>('detecting');
+  const verifiedRef = useRef(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Run the fake liveness-check animation then pass/fail at 85 % rate
-  const startVerifying = useCallback(() => {
-    setPhase('verifying');
-    Animated.loop(
-      Animated.timing(spinAnim, { toValue: 1, duration: 1200, useNativeDriver: true })
-    ).start();
-    hintTimer.current = setInterval(() => setHintIdx(i => (i + 1) % HINTS.length), 900);
+  // Keep stepRef in sync so the onFacesDetected callback always reads current step
+  useEffect(() => { stepRef.current = step; }, [step]);
 
-    setTimeout(() => {
-      if (hintTimer.current) clearInterval(hintTimer.current);
-      spinAnim.stopAnimation();
-      spinAnim.setValue(0);
-      if (Math.random() > 0.15) onVerified();
-      else setPhase('error');
-    }, 2500);
-  }, [onVerified, spinAnim]);
+  // Pulse the instruction label each time the step changes
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1.12, duration: 180, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+  }, [step]);
 
-  // Request camera permission then open the in-app camera view
-  const openCamera = useCallback(async () => {
+  // Ask for camera permission on mount
+  useEffect(() => {
     if (!permission?.granted) {
-      const { granted } = await requestPermission();
-      if (!granted) {
-        Alert.alert('Camera Required', 'Please allow camera access for face verification.');
-        return;
+      requestPermission().then(({ granted }) => {
+        if (!granted) {
+          Alert.alert(
+            'Camera Required',
+            'Camera access is needed to verify you are awake. Please grant permission.',
+          );
+        }
+      });
+    }
+  }, []);
+
+  // Web fallback — auto-advance each step on a timer since face detection
+  // APIs are not available in browser environments.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const delays: Record<Step, number> = {
+      permission: 0,
+      detecting:  1500,
+      turn_left:  2500,
+      turn_right: 2500,
+      blink:      2500,
+      done:       0,
+    };
+    const currentStep = step;
+    if (currentStep === 'done') return;
+    const delay = delays[currentStep];
+    if (!delay) return;
+    const timer = setTimeout(() => {
+      advanceStep(currentStep);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [step]);
+
+  const advanceStep = useCallback((current: Step) => {
+    if (verifiedRef.current) return;
+    const idx = STEPS_IN_ORDER.indexOf(current);
+    if (idx < 0) return;
+    const next = STEPS_IN_ORDER[idx + 1] as Step;
+    consecutiveFrames.current = 0;
+    setStep(next);
+    if (next === 'done') {
+      verifiedRef.current = true;
+      // Small delay so the user sees "Verified!" before the screen changes
+      setTimeout(onVerified, 800);
+    }
+  }, [onVerified]);
+
+  /**
+   * Called every frame (≈ 150 ms) with the list of detected faces.
+   * Uses a consecutive-frame counter to avoid false positives from brief
+   * accidental poses.
+   */
+  const handleFacesDetected = useCallback(({ faces }: { faces: FaceDetector.FaceFeature[] }) => {
+    if (verifiedRef.current) return;
+    const current = stepRef.current;
+
+    if (faces.length === 0) {
+      consecutiveFrames.current = 0;
+      return;
+    }
+
+    const face = faces[0];
+    const yaw = face.yawAngle ?? 0;
+    const leftOpen = face.leftEyeOpenProbability ?? 1;
+    const rightOpen = face.rightEyeOpenProbability ?? 1;
+
+    let conditionMet = false;
+
+    if (current === 'detecting') {
+      // Any face in frame is enough
+      conditionMet = true;
+    } else if (current === 'turn_left') {
+      // Negative yaw = face turned left (from user's POV with front camera)
+      conditionMet = yaw < -YAW_THRESHOLD;
+    } else if (current === 'turn_right') {
+      // Positive yaw = face turned right (from user's POV with front camera)
+      conditionMet = yaw > YAW_THRESHOLD;
+    } else if (current === 'blink') {
+      // Both eyes must be closed simultaneously
+      conditionMet = leftOpen < BLINK_THRESHOLD && rightOpen < BLINK_THRESHOLD;
+    }
+
+    if (conditionMet) {
+      consecutiveFrames.current += 1;
+      if (consecutiveFrames.current >= FRAMES_NEEDED) {
+        advanceStep(current);
       }
+    } else {
+      consecutiveFrames.current = 0;
     }
-    setPhase('camera');
-  }, [permission, requestPermission]);
+  }, [advanceStep]);
 
-  // Capture a frame from the in-app CameraView and begin verification
-  const takeSelfie = useCallback(async () => {
-    if (!cameraRef.current) return;
-    try {
-      await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true });
-      startVerifying();
-    } catch {
-      Alert.alert('Error', 'Could not capture photo. Please try again.');
-    }
-  }, [startVerifying]);
-
-  const rotation = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
-  if (phase === 'instructions') {
+  if (!permission?.granted) {
     return (
       <View style={styles.wrapper}>
         <View style={styles.iconCircle}>
-          <Feather name="smile" size={48} color={Colors.primary} />
+          <Feather name="lock" size={40} color={Colors.primary} />
         </View>
-        <Text style={styles.hint}>
-          Take a selfie with your eyes open and a slight smile to confirm you are awake.
-        </Text>
+        <Text style={styles.label}>Camera permission needed</Text>
         <Pressable
-          onPress={openCamera}
+          onPress={requestPermission}
           style={({ pressed }) => [styles.btn, { opacity: pressed ? 0.85 : 1 }]}
         >
-          <Feather name="camera" size={18} color="#fff" />
-          <Text style={styles.btnText}>Open Camera</Text>
+          <Text style={styles.btnText}>Grant Permission</Text>
         </Pressable>
       </View>
     );
   }
 
-  if (phase === 'camera') {
-    return (
-      <View style={styles.cameraWrapper}>
-        {/* Front-facing in-app camera — does NOT open the system camera app */}
-        <CameraView ref={cameraRef} style={styles.camera} facing="front" />
-        <View style={styles.cameraOverlay}>
-          {/* Oval guide to help the user frame their face */}
-          <View style={styles.faceGuide} />
-          <Text style={styles.guideLabel}>Align your face inside the oval</Text>
-          <Pressable
-            onPress={takeSelfie}
-            style={({ pressed }) => [styles.captureBtn, { opacity: pressed ? 0.8 : 1 }]}
-          >
-            <View style={styles.captureInner} />
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
+  const progressIndex = STEPS_IN_ORDER.indexOf(step);
 
-  if (phase === 'verifying') {
-    return (
-      <View style={styles.wrapper}>
-        <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-          <Feather name="loader" size={64} color={Colors.primary} />
-        </Animated.View>
-        <Text style={styles.statusLabel}>LIVELINESS CHECK</Text>
-        <Text style={styles.hint}>{HINTS[hintIdx]}</Text>
-      </View>
-    );
-  }
-
-  // error phase
   return (
     <View style={styles.wrapper}>
-      <View style={[styles.iconCircle, { borderColor: 'rgba(255,59,48,0.3)', backgroundColor: 'rgba(255,59,48,0.1)' }]}>
-        <Feather name="alert-circle" size={48} color="#FF3B30" />
+      {/* Live camera preview */}
+      <View style={styles.cameraWrapper}>
+        <CameraView
+          style={styles.camera}
+          facing="front"
+          onFacesDetected={Platform.OS !== 'web' ? handleFacesDetected : undefined}
+          faceDetectorSettings={Platform.OS !== 'web' ? {
+            mode: FaceDetector.FaceDetectorMode.fast,
+            detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+            runClassifications: FaceDetector.FaceDetectorClassifications.all,
+            minDetectionInterval: 150,
+            tracking: true,
+          } : undefined}
+        />
+
+        {/* Overlay: face oval guide */}
+        <View style={styles.cameraOverlay}>
+          <View style={styles.ovalGuide} />
+        </View>
       </View>
-      <Text style={[styles.hint, { color: '#FF3B30' }]}>
-        Face verification failed. Please try again.
-      </Text>
-      <Pressable
-        onPress={() => setPhase('camera')}
-        style={({ pressed }) => [styles.btn, styles.retryBtn, { opacity: pressed ? 0.85 : 1 }]}
-      >
-        <Text style={[styles.btnText, { color: '#FF3B30' }]}>Try Again</Text>
-      </Pressable>
+
+      {/* Step progress dots */}
+      <View style={styles.dotsRow}>
+        {STEPS_IN_ORDER.filter(s => s !== 'done').map((s, i) => (
+          <View
+            key={s}
+            style={[
+              styles.dot,
+              i < progressIndex && styles.dotDone,
+              i === progressIndex && styles.dotActive,
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* Current instruction */}
+      <Animated.View style={{ transform: [{ scale: pulseAnim }], alignItems: 'center' }}>
+        <Feather
+          name={STEP_ICONS[step] as any}
+          size={32}
+          color={step === 'done' ? '#34C759' : Colors.primary}
+          style={{ marginBottom: 8 }}
+        />
+        <Text style={[styles.label, step === 'done' && { color: '#34C759' }]}>
+          {STEP_LABELS[step]}
+        </Text>
+        {Platform.OS === 'web' && step !== 'done' && (
+          <Text style={styles.webNote}>Auto-detecting on device…</Text>
+        )}
+      </Animated.View>
     </View>
   );
 });
@@ -142,55 +241,12 @@ export const FaceLivenessCheck = React.memo(function FaceLivenessCheck({ onVerif
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
-    gap: 20,
+    gap: 18,
     width: '100%',
   },
-  iconCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,107,0,0.3)',
-    backgroundColor: 'rgba(255,107,0,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.primary,
-    letterSpacing: 2,
-  },
-  hint: {
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  btn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 24,
-    backgroundColor: Colors.primary,
-  },
-  btnText: {
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-    color: '#fff',
-  },
-  retryBtn: {
-    backgroundColor: 'rgba(255,59,48,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.4)',
-  },
-  // In-app camera styles
   cameraWrapper: {
     width: '100%',
-    height: 340,
+    height: 300,
     borderRadius: 24,
     overflow: 'hidden',
     position: 'relative',
@@ -201,38 +257,66 @@ const styles = StyleSheet.create({
   cameraOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
+    justifyContent: 'center',
   },
-  faceGuide: {
-    width: 180,
-    height: 230,
-    borderRadius: 90,
+  ovalGuide: {
+    width: 160,
+    height: 200,
+    borderRadius: 80,
     borderWidth: 2,
     borderColor: Colors.primary,
     borderStyle: 'dashed',
-    marginTop: 10,
   },
-  guideLabel: {
-    fontSize: 13,
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  dotDone: {
+    backgroundColor: '#34C759',
+  },
+  dotActive: {
+    backgroundColor: Colors.primary,
+    width: 24,
+    borderRadius: 4,
+  },
+  label: {
+    fontSize: 20,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  webNote: {
+    fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: 'rgba(255,255,255,0.8)',
-    letterSpacing: 0.3,
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 4,
   },
-  captureBtn: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 3,
-    borderColor: '#fff',
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,107,0,0.3)',
+    backgroundColor: 'rgba(255,107,0,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  captureInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#fff',
+  btn: {
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+  },
+  btnText: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
 });

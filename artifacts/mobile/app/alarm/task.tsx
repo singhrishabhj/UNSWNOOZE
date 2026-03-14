@@ -1,3 +1,11 @@
+/**
+ * Wake-up task screen — the alarm continues ringing here (started by trigger.tsx)
+ * until the user either:
+ *   A) Completes the liveness check (face task) or toothpaste photo → handleSuccess()
+ *   B) Gives up → handleGiveUp()
+ *
+ * Both paths call stopAlarm() so the sound is guaranteed to stop.
+ */
 import { Feather } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FaceLivenessCheck } from '@/components/FaceLivenessCheck';
 import { Colors } from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
+import { stopAlarm } from '@/services/alarmSound';
 
 type ToothpasteStep = 'instructions' | 'camera' | 'verifying' | 'done';
 
@@ -31,14 +40,15 @@ export default function WakeTaskScreen() {
 
   const task = alarm?.wakeTask ?? 'face';
 
-  // Toothpaste flow state
+  // Toothpaste-specific state
   const [toothStep, setToothStep] = useState<ToothpasteStep>('instructions');
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
 
-  // Shared success handler — marks wake-up complete and routes to success screen
-  const handleSuccess = useCallback(() => {
+  // Shared success handler — stops alarm THEN records success and navigates
+  const handleSuccess = useCallback(async () => {
+    await stopAlarm();                              // alarm silenced here
     completeWakeUp();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setTimeout(() => {
@@ -46,12 +56,16 @@ export default function WakeTaskScreen() {
     }, 600);
   }, [completeWakeUp, alarmId]);
 
-  const handleGiveUp = useCallback(() => {
+  // Give-up handler — stop alarm and record failure
+  const handleGiveUp = useCallback(async () => {
+    await stopAlarm();
     router.replace({ pathname: '/alarm/failure', params: { alarmId } });
   }, [alarmId]);
 
+  // ─── Toothpaste helpers ────────────────────────────────────────────────────
+
   // Run the verifying animation then complete the task
-  const startVerifying = useCallback(() => {
+  const startToothpasteVerifying = useCallback(() => {
     setToothStep('verifying');
     Animated.loop(
       Animated.timing(spinAnim, { toValue: 1, duration: 1200, useNativeDriver: true })
@@ -62,44 +76,43 @@ export default function WakeTaskScreen() {
     }, 1800);
   }, [spinAnim, handleSuccess]);
 
-  // Request permission then switch to in-app camera view
-  const openCamera = useCallback(async () => {
+  // Request permission then open the in-app rear camera
+  const openToothpasteCamera = useCallback(async () => {
     if (!permission?.granted) {
       const { granted } = await requestPermission();
       if (!granted) {
-        Alert.alert('Camera Required', 'Please allow camera access to complete the wake-up task.');
+        Alert.alert('Camera Required', 'Please allow camera access to complete this task.');
         return;
       }
     }
     setToothStep('camera');
   }, [permission, requestPermission]);
 
-  // Capture with the rear camera and begin verification
-  const capturePhoto = useCallback(async () => {
+  // Capture photo with rear camera and begin verification
+  const captureToothpastePhoto = useCallback(async () => {
     if (!cameraRef.current) return;
     try {
       await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true });
-      startVerifying();
+      startToothpasteVerifying();
     } catch {
       Alert.alert('Error', 'Could not capture photo. Please try again.');
     }
-  }, [startVerifying]);
+  }, [startToothpasteVerifying]);
 
   const rotation = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
-  // ─── Face verification task ───
+  // ─── Face task ─────────────────────────────────────────────────────────────
+  // FaceLivenessCheck runs real-time face detection (head left → right → blink)
+  // and calls onVerified() when all steps are complete.
   if (task === 'face') {
     return (
       <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
         <View style={styles.topBar}>
           <Text style={styles.topLabel}>WAKE-UP TASK</Text>
+          <Text style={styles.topSub}>Alarm stops when liveness is confirmed</Text>
         </View>
         <View style={styles.center}>
-          <Text style={styles.taskTitle}>Face Verification</Text>
-          <FaceLivenessCheck
-            onVerified={handleSuccess}
-            onFailed={() => {/* FaceLivenessCheck handles retry internally */}}
-          />
+          <FaceLivenessCheck onVerified={handleSuccess} />
         </View>
         <View style={styles.giveUpRow}>
           <Pressable onPress={handleGiveUp} style={styles.giveUpBtn}>
@@ -110,11 +123,12 @@ export default function WakeTaskScreen() {
     );
   }
 
-  // ─── Toothpaste verification task ───
+  // ─── Toothpaste task ───────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
       <View style={styles.topBar}>
         <Text style={styles.topLabel}>WAKE-UP TASK</Text>
+        <Text style={styles.topSub}>Alarm stops when photo is verified</Text>
       </View>
 
       {toothStep === 'instructions' && (
@@ -124,11 +138,11 @@ export default function WakeTaskScreen() {
           </View>
           <Text style={styles.taskTitle}>Toothpaste Verification</Text>
           <Text style={styles.taskDesc}>
-            Take a photo of your toothpaste tube. This confirms you are out of bed and
+            Take a photo of your toothpaste tube to confirm you are out of bed and
             starting your morning routine.
           </Text>
           <Pressable
-            onPress={openCamera}
+            onPress={openToothpasteCamera}
             style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
           >
             <LinearGradient
@@ -155,7 +169,7 @@ export default function WakeTaskScreen() {
             <CameraView ref={cameraRef} style={styles.camera} facing="back" />
             <View style={styles.cameraOverlay}>
               <Pressable
-                onPress={capturePhoto}
+                onPress={captureToothpastePhoto}
                 style={({ pressed }) => [styles.captureBtn, { opacity: pressed ? 0.8 : 1 }]}
               >
                 <View style={styles.captureInner} />
@@ -195,7 +209,8 @@ const styles = StyleSheet.create({
   },
   topBar: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
+    gap: 4,
   },
   topLabel: {
     fontSize: 12,
@@ -203,12 +218,18 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     letterSpacing: 2,
   },
+  topSub: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 0.3,
+  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 24,
+    paddingHorizontal: 24,
+    gap: 20,
   },
   iconBig: {
     width: 120,
@@ -221,18 +242,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   taskTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
     textAlign: 'center',
     letterSpacing: -0.5,
   },
   taskDesc: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   actionBtn: {
     flexDirection: 'row',
@@ -263,17 +284,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     color: 'rgba(255,255,255,0.3)',
   },
-  // In-app camera
+  // Toothpaste in-app camera
   cameraWrapper: {
     width: '100%',
-    height: 300,
+    height: 280,
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
   },
-  camera: {
-    flex: 1,
-  },
+  camera: { flex: 1 },
   cameraOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',

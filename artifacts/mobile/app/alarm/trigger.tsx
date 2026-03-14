@@ -16,6 +16,7 @@ import { DigitalClock } from '@/components/DigitalClock';
 import { Colors } from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/hooks/useTheme';
+import { startAlarm, stopAlarm } from '@/services/alarmSound';
 
 const MOTIVATIONAL = [
   'Rise and conquer the day.',
@@ -36,106 +37,15 @@ export default function AlarmTriggerScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [quote] = useState(() => MOTIVATIONAL[Math.floor(Math.random() * MOTIVATIONAL.length)]);
 
-  // Snooze state
   const [snoozed, setSnoozed] = useState(false);
   const [snoozeUsed, setSnoozeUsed] = useState(false);
   const [snoozeCountdown, setSnoozeCountdown] = useState(SNOOZE_SECONDS);
   const snoozeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const speechRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const beepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  const startStandardAlarm = useCallback(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    try {
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtxClass) return;
-      const ctx = new AudioCtxClass() as AudioContext;
-      audioCtxRef.current = ctx;
-
-      const masterGain = ctx.createGain();
-      masterGain.gain.value = 0.5;
-      masterGain.connect(ctx.destination);
-
-      const playBeep = (freq: number, startTime: number, duration: number) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(masterGain);
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(1.0, startTime + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-        osc.start(startTime);
-        osc.stop(startTime + duration + 0.02);
-      };
-
-      const ringPattern = () => {
-        if (!audioCtxRef.current) return;
-        const t = audioCtxRef.current.currentTime;
-        playBeep(880, t, 0.18);
-        playBeep(880, t + 0.22, 0.18);
-        playBeep(1100, t + 0.44, 0.28);
-      };
-
-      ringPattern();
-      beepIntervalRef.current = setInterval(ringPattern, 1400);
-    } catch (e) {}
-  }, []);
-
-  const stopStandardAlarm = useCallback(() => {
-    if (beepIntervalRef.current) {
-      clearInterval(beepIntervalRef.current);
-      beepIntervalRef.current = null;
-    }
-    try {
-      audioCtxRef.current?.close();
-      audioCtxRef.current = null;
-    } catch {}
-  }, []);
-
-  const startVoiceAlarm = useCallback((title: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const speak = () => {
-      const utterance = new SpeechSynthesisUtterance(`${title}. Wake up.`);
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      window.speechSynthesis.speak(utterance);
-    };
-    speak();
-    speechRef.current = setInterval(speak, 5000);
-  }, []);
-
-  const stopVoiceAlarm = useCallback(() => {
-    if (speechRef.current) {
-      clearInterval(speechRef.current);
-      speechRef.current = null;
-    }
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-  }, []);
-
-  const startAlarm = useCallback(() => {
-    if (Platform.OS === 'web') {
-      if (alarm?.soundType === 'voice' && alarm?.title) {
-        startVoiceAlarm(alarm.title);
-      } else {
-        startStandardAlarm();
-      }
-    }
-  }, [alarm, startVoiceAlarm, startStandardAlarm]);
-
-  const stopAlarm = useCallback(() => {
-    stopVoiceAlarm();
-    stopStandardAlarm();
-  }, [stopVoiceAlarm, stopStandardAlarm]);
-
+  // Start looping alarm on mount; stop cleanly on unmount
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -145,20 +55,24 @@ export default function AlarmTriggerScreen() {
     ).start();
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    // Start the alarm (expo-av on native, AudioContext on web)
     startAlarm();
 
     return () => {
-      stopAlarm();
+      // Only stop alarm if we haven't navigated to the task screen.
+      // If the user tapped "Complete Task", alarm is kept alive deliberately
+      // and will be stopped by task.tsx on success or give-up.
       if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
     };
   }, []);
 
-  const handleSnooze = () => {
+  const handleSnooze = useCallback(() => {
     if (snoozeUsed || snoozed) return;
     recordSnooze();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSnoozed(true);
     setSnoozeUsed(true);
+    // Stop alarm for the snooze duration
     stopAlarm();
 
     let remaining = SNOOZE_SECONDS;
@@ -172,17 +86,19 @@ export default function AlarmTriggerScreen() {
         snoozeTimerRef.current = null;
         setSnoozed(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        // Restart alarm after snooze
         startAlarm();
       }
     }, 1000);
-  };
+  }, [snoozeUsed, snoozed, recordSnooze]);
 
-  const handleCompleteTask = () => {
+  const handleCompleteTask = useCallback(() => {
     if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
-    stopAlarm();
+    // Do NOT stop the alarm here — it must keep ringing through the task
+    // screen until the liveness check is fully completed.
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.replace({ pathname: '/alarm/task', params: { alarmId } });
-  };
+  }, [alarmId]);
 
   const snoozeMinutes = Math.floor(snoozeCountdown / 60);
   const snoozeSeconds = snoozeCountdown % 60;
@@ -201,24 +117,18 @@ export default function AlarmTriggerScreen() {
         </View>
 
         <View style={styles.midSection}>
+          {/* Alarm title — passed via navigation params via the alarm object */}
           <Text style={styles.alarmTitle}>{alarm?.title ?? 'Wake Up'}</Text>
           <Text style={styles.quote}>{quote}</Text>
         </View>
 
         <View style={styles.soundRow}>
-          {alarm?.soundType === 'voice' ? (
-            <View style={styles.soundIndicator}>
-              <Feather name="mic" size={13} color={Colors.primary} />
-              <Text style={styles.soundText}>Speaking alarm title</Text>
-            </View>
-          ) : (
-            <View style={styles.soundIndicator}>
-              <Feather name="volume-2" size={13} color={Colors.primary} />
-              <Text style={styles.soundText}>
-                {snoozed ? 'Alarm snoozed' : 'Standard alarm ringing'}
-              </Text>
-            </View>
-          )}
+          <View style={styles.soundIndicator}>
+            <Feather name="volume-2" size={13} color={Colors.primary} />
+            <Text style={styles.soundText}>
+              {snoozed ? 'Alarm snoozed' : 'Alarm ringing'}
+            </Text>
+          </View>
         </View>
 
         {/* Primary wake-up button */}
@@ -240,7 +150,7 @@ export default function AlarmTriggerScreen() {
           </Pressable>
         </Animated.View>
 
-        {/* Snooze row — shows button or countdown */}
+        {/* Snooze row */}
         <View style={styles.snoozeRow}>
           {snoozed ? (
             <View style={styles.snoozeCountdownPill}>
@@ -264,9 +174,7 @@ export default function AlarmTriggerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   glowBg: {
     position: 'absolute',
     width: 300,
@@ -286,16 +194,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-  topSection: {
-    alignItems: 'center',
-    marginTop: 20,
-    width: '100%',
-  },
-  midSection: {
-    alignItems: 'center',
-    gap: 16,
-    width: '100%',
-  },
+  topSection: { alignItems: 'center', marginTop: 20, width: '100%' },
+  midSection: { alignItems: 'center', gap: 16, width: '100%' },
   alarmTitle: {
     fontSize: 32,
     fontFamily: 'Inter_700Bold',
@@ -311,9 +211,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontStyle: 'italic',
   },
-  soundRow: {
-    alignItems: 'center',
-  },
+  soundRow: { alignItems: 'center' },
   soundIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -330,9 +228,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: Colors.primary,
   },
-  buttonWrapper: {
-    width: '100%',
-  },
+  buttonWrapper: { width: '100%' },
   wakeBtn: {
     borderRadius: 24,
     padding: 28,

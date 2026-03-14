@@ -49,7 +49,9 @@
   },
   "dependencies": {
     "@expo-google-fonts/noto-sans-devanagari": "^0.4.1",
+    "expo-av": "~16.0.8",
     "expo-camera": "^17.0.10",
+    "expo-face-detector": "^13.0.2",
     "react-native-worklets": "0.5.1"
   }
 }

@@ -1,0 +1,101 @@
+Fix the core functionality of the UNSNWOOZE alarm app without adding any paid services, external APIs, or increasing infrastructure cost. Only use existing Expo packages.
+
+Current issues to fix:
+
+1. Alarm screen opens but there is **no alarm sound** and **no alarm title shown**.
+
+Fix requirements:
+
+* Use **expo-av** to play the alarm sound.
+* Alarm sound must **loop continuously** until the user completes the verification.
+* Ensure the alarm works when triggered by **expo-notifications**.
+* Pass and display the **alarm title** correctly on the alarm screen.
+* The alarm must continue ringing even if the phone is in **silent mode (iOS)**.
+
+2. Camera verification flow is incorrect.
+
+Current behavior:
+
+* Camera opens
+* User must press a shutter button
+* Photo is taken and then liveliness is checked
+
+This is wrong.
+
+Correct behavior required:
+
+The camera should run **live face detection automatically** using:
+
+* expo-camera
+* expo-face-detector
+
+Remove the **photo capture button completely**.
+
+Correct verification flow:
+
+Step 1
+Detect a face automatically.
+
+Step 2
+Show instruction on screen:
+"Turn your head LEFT"
+
+Step 3
+Detect head rotation left.
+
+Step 4
+Show instruction:
+"Turn your head RIGHT"
+
+Step 5
+Detect head rotation right.
+
+Step 6
+Show instruction:
+"Blink to stop alarm"
+
+Step 7
+Detect eye blink.
+
+Only when **all conditions are completed** should the alarm stop.
+
+3. Alarm stopping logic
+
+The alarm sound must NOT stop until:
+
+* head turned left
+* head turned right
+* blink detected
+
+If these conditions are not completed, the alarm must **keep ringing continuously**.
+
+4. UI requirements
+
+Show clear instructions in the center of the screen such as:
+
+* "Turn your head left"
+* "Turn your head right"
+* "Blink to stop alarm"
+
+No shutter button should exist.
+
+5. Technical constraints
+
+Do NOT add:
+
+* external APIs
+* cloud services
+* paid SDKs
+* subscriptions
+
+Only use these Expo packages:
+
+* expo-av
+* expo-camera
+* expo-face-detector
+* expo-notifications
+
+Everything must run **fully on-device**.
+
+Goal:
+Make the alarm ring correctly and implement **real-time liveness verification** before the alarm can be stopped.
