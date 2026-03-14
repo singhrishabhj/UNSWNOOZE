@@ -198,6 +198,13 @@ export default function HomeScreen() {
             <View style={styles.streakCenter}>
               <StreakRing currentStreak={data.currentStreak} bestStreak={data.bestStreak} />
             </View>
+            {/* Streak Freeze (Snap) indicator */}
+            <View style={styles.freezeRow}>
+              <Feather name="shield" size={14} color="#60a5fa" />
+              <Text style={[styles.freezeText, { color: colors.textSecondary, fontFamily: fonts.regular }]}>
+                {data.streakFreezeCount ?? 0} Streak Freeze{(data.streakFreezeCount ?? 0) !== 1 ? 's' : ''} available
+              </Text>
+            </View>
           </View>
 
           {/* Achievements — always visible */}
@@ -395,6 +402,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   streakCenter: { alignItems: 'center', marginTop: 4 },
+  freezeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  freezeText: { fontSize: 12 },
 
   // Achievements
   achievementsHeader: {

@@ -1,0 +1,236 @@
+You are a **senior React Native + Expo engineer fixing the progress tracking system**.
+
+Project: **UNSNWOOZE**
+
+Framework:
+
+• Expo
+• React Native
+• Expo Router
+
+UNSNWOOZE is an alarm application where the user must **complete a wake-up task to stop the alarm**.
+
+The app tracks user discipline using metrics such as:
+
+• Discipline Count
+• Streak Count
+• Streak Freeze (Snap feature)
+
+Currently these **counters are not working correctly and not increasing**.
+
+Your task is to **fix and implement a reliable discipline and streak tracking system without rewriting the project**.
+
+IMPORTANT RULES:
+
+• Do NOT rewrite the whole project
+• Only modify files related to counters and streak logic
+• Keep dependencies minimal
+• Ensure counters persist across app restarts
+• Ensure the app does not crash
+• Ensure UI updates correctly
+
+---
+
+# PART 1 — Initial Values
+
+All counters must start at **zero** for new users.
+
+Default state:
+
+disciplineCount = 0
+streakCount = 0
+streakFreezeCount = 0
+
+If AsyncStorage has no saved data, initialize these values safely.
+
+---
+
+# PART 2 — Discipline Count Logic
+
+Discipline Count should increase when the user **successfully completes the wake-up task**.
+
+Example:
+
+Before task completion:
+
+disciplineCount = 5
+
+After successful alarm completion:
+
+disciplineCount = 6
+
+Rules:
+
+• Increase by **+1 only once per alarm completion**
+• Prevent duplicate increments
+• Persist updated value in AsyncStorage
+
+---
+
+# PART 3 — Streak Count Logic
+
+Streak represents **consecutive days of successful wake-ups**.
+
+Rules:
+
+If the user completes today's alarm:
+
+→ compare today's date with lastCompletionDate.
+
+Cases:
+
+1️⃣ If lastCompletionDate was **yesterday**
+
+→ streakCount += 1
+
+2️⃣ If lastCompletionDate was **today**
+
+→ do NOT increase streak again.
+
+3️⃣ If lastCompletionDate is **older than yesterday**
+
+→ streak is broken.
+
+If streak breaks:
+
+→ reset streakCount to **0**
+
+Then if user completes a new alarm:
+
+→ start streak again at **1**
+
+---
+
+# PART 4 — Streak Freeze / Snap Feature
+
+UNSNWOOZE includes a **streak protection feature**.
+
+If the user achieves **3 consecutive days of streak**, they earn **1 Streak Freeze (Snap)**.
+
+Example:
+
+Day 1 → streak = 1
+Day 2 → streak = 2
+Day 3 → streak = 3
+
+User earns:
+
+streakFreezeCount += 1
+ like first streak freeze at 3 another at 9 so on , they can collect and freeze their streak for 24 hour
+
+---
+
+# PART 5 — Using a Streak Freeze
+
+If the user **misses a day**, normally the streak resets.
+
+But if the user has a **streakFreeze available**:
+
+Instead of resetting streak:
+
+• consume one freeze
+• streak remains unchanged
+
+Example:
+
+streak = 5
+freeze = 1
+
+User misses a day.
+
+Result:
+
+streak stays 5
+freeze becomes 0
+
+If no freeze is available:
+
+→ streak resets to 0.
+
+---
+
+# PART 6 — Data Storage
+
+Store all counters safely using AsyncStorage.
+
+Example object:
+
+{
+disciplineCount: number,
+streakCount: number,
+streakFreezeCount: number,
+lastCompletionDate: string
+}
+
+Ensure values persist after:
+
+• app restart
+• app reload
+• device reboot
+
+---
+
+# PART 7 — Updating UI
+
+Ensure that after counters update:
+
+• UI refreshes immediately
+• progress bars update correctly
+• streak indicators update
+
+Avoid stale state issues.
+
+---
+
+# PART 8 — Edge Case Handling
+
+Handle these cases safely:
+
+• first time user
+• corrupted storage data
+• null values
+• multiple alarms completed in same day
+
+Ensure counters increase **only once per day for streak**.
+
+---
+
+# PART 9 — Debug Verification
+
+Trace the following flow:
+
+Alarm Task Completed
+→ Completion Handler
+→ Counter Update
+→ AsyncStorage Save
+→ UI Refresh
+
+Fix any missing or broken step.
+
+---
+
+# PART 10 — Performance & Stability
+
+Ensure:
+
+• no infinite loops
+• no duplicate increments
+• no unnecessary re-renders
+• no crashes if storage fails
+
+---
+
+# EXPECTED OUTPUT
+
+Provide:
+
+1. Files that must be modified
+2. Correct discipline counter logic
+3. Correct streak tracking logic
+4. Streak freeze implementation
+5. AsyncStorage persistence implementation
+6. UI update fix
+
+Do NOT regenerate the entire project.
+
+Focus only on fixing the **discipline, streak, and streak freeze tracking system** for the UNSNWOOZE application.

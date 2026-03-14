@@ -39,7 +39,8 @@ export interface AppData {
   totalWakeUps: number;
   totalSnoozes: number;
   disciplineScore: number;
-  lastWakeDate: string | null;
+  streakFreezeCount: number;
+  lastWakeDate: string | null; // 'YYYY-MM-DD'
   onboardingComplete: boolean;
   theme: 'light' | 'dark' | 'system';
   language: 'en' | 'hi';
@@ -61,6 +62,7 @@ const DEFAULT_DATA: AppData = {
   totalWakeUps: 0,
   totalSnoozes: 0,
   disciplineScore: 0,
+  streakFreezeCount: 0,
   lastWakeDate: null,
   onboardingComplete: false,
   theme: 'system',
@@ -73,6 +75,19 @@ const DEFAULT_DATA: AppData = {
 function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function yesterdayStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Freeze is awarded every time streak crosses a multiple-of-3 boundary. */
+function freezesEarned(prevStreak: number, newStreak: number): number {
+  const prevMultiple = Math.floor(prevStreak / 3);
+  const newMultiple = Math.floor(newStreak / 3);
+  return Math.max(0, newMultiple - prevMultiple);
 }
 
 /**
@@ -128,6 +143,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (stored.weeklyHistory === undefined) stored.weeklyHistory = [];
     if (stored.disciplineScore === undefined) {
       stored.disciplineScore = Math.min(100, stored.currentStreak * 5);
+    }
+    // streakFreezeCount added in v2 — default 0 for existing users.
+    if (stored.streakFreezeCount === undefined) stored.streakFreezeCount = 0;
+    // lastWakeDate was previously stored as toDateString() ("Thu Mar 14 2026").
+    // Migrate to ISO 'YYYY-MM-DD' so date comparisons are reliable.
+    if (stored.lastWakeDate && !/^\d{4}-\d{2}-\d{2}$/.test(stored.lastWakeDate)) {
+      stored.lastWakeDate = null;
     }
     // Per-alarm field migrations — ensure every alarm has all required fields.
     // soundType was added after initial release; old alarms default to 'standard'.
@@ -190,18 +212,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [update]);
 
   const completeWakeUp = useCallback(() => {
-    const today = new Date().toDateString();
+    const today = todayStr();
     update(prev => {
-      const isConsecutive = prev.lastWakeDate === new Date(Date.now() - 86400000).toDateString();
-      const alreadyToday = prev.lastWakeDate === today;
-      if (alreadyToday) return prev;
-      const newStreak = isConsecutive || prev.lastWakeDate === null ? prev.currentStreak + 1 : 1;
+      // Guard: don't increment twice on the same calendar day.
+      if (prev.lastWakeDate === today) return prev;
+
+      // Streak is consecutive only if last wake was exactly yesterday.
+      const isConsecutive = prev.lastWakeDate === yesterdayStr();
+      const prevStreak = prev.currentStreak;
+      const newStreak = (isConsecutive || prev.lastWakeDate === null)
+        ? prevStreak + 1
+        : 1;
+
+      // Award a freeze every time the streak crosses a multiple-of-3 boundary.
+      const earned = freezesEarned(prevStreak, newStreak);
+
       return {
         ...prev,
         currentStreak: newStreak,
         bestStreak: Math.max(prev.bestStreak, newStreak),
         totalWakeUps: prev.totalWakeUps + 1,
         disciplineScore: Math.min(100, prev.disciplineScore + 5),
+        streakFreezeCount: prev.streakFreezeCount + earned,
         lastWakeDate: today,
         weeklyHistory: upsertDayOutcome(prev.weeklyHistory, 'success'),
       };
@@ -217,12 +249,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [update]);
 
   const missAlarm = useCallback(() => {
-    update(prev => ({
-      ...prev,
-      currentStreak: 0,
-      disciplineScore: Math.max(0, prev.disciplineScore - 5),
-      weeklyHistory: upsertDayOutcome(prev.weeklyHistory, 'missed'),
-    }));
+    update(prev => {
+      // If the user has a freeze available, consume one and protect the streak.
+      if (prev.streakFreezeCount > 0 && prev.currentStreak > 0) {
+        return {
+          ...prev,
+          streakFreezeCount: prev.streakFreezeCount - 1,
+          weeklyHistory: upsertDayOutcome(prev.weeklyHistory, 'missed'),
+        };
+      }
+      // No freeze — reset streak and penalise discipline score.
+      return {
+        ...prev,
+        currentStreak: 0,
+        disciplineScore: Math.max(0, prev.disciplineScore - 5),
+        weeklyHistory: upsertDayOutcome(prev.weeklyHistory, 'missed'),
+      };
+    });
   }, [update]);
 
   const completeOnboarding = useCallback(() => {

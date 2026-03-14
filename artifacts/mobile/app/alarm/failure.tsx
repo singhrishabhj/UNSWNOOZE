@@ -16,8 +16,12 @@ import { useTranslation } from '@/hooks/useTranslation';
 
 export default function AlarmFailureScreen() {
   const insets = useSafeAreaInsets();
-  const { missAlarm } = useApp();
+  const { data, missAlarm } = useApp();
   const { t, fonts } = useTranslation();
+
+  // Capture freeze state BEFORE missAlarm() consumes it, so the UI reflects
+  // the outcome accurately even after the state update re-renders.
+  const willUseFreeze = data.streakFreezeCount > 0 && data.currentStreak > 0;
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -28,18 +32,23 @@ export default function AlarmFailureScreen() {
 
   useEffect(() => {
     missAlarm();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    Haptics.notificationAsync(
+      willUseFreeze
+        ? Haptics.NotificationFeedbackType.Warning
+        : Haptics.NotificationFeedbackType.Error,
+    );
 
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 10, useNativeDriver: true }),
       Animated.spring(iconScale, { toValue: 1, tension: 40, friction: 8, useNativeDriver: true }),
     ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
-      <View style={styles.glow} />
+      <View style={[styles.glow, willUseFreeze && styles.glowBlue]} />
 
       <Animated.View
         style={[
@@ -47,18 +56,68 @@ export default function AlarmFailureScreen() {
           { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
         ]}
       >
-        <Animated.View style={[styles.iconWrap, { transform: [{ scale: iconScale }] }]}>
-          <Feather name="moon" size={44} color="#FF4444" />
+        <Animated.View
+          style={[
+            styles.iconWrap,
+            willUseFreeze && styles.iconWrapBlue,
+            { transform: [{ scale: iconScale }] },
+          ]}
+        >
+          <Feather
+            name={willUseFreeze ? 'shield' : 'moon'}
+            size={44}
+            color={willUseFreeze ? '#60a5fa' : '#FF4444'}
+          />
         </Animated.View>
 
         <View style={styles.textBlock}>
-          <Text style={[styles.headline, { fontFamily: fonts.bold }]}>{t.missedWakeUp}</Text>
+          <Text style={[styles.headline, { fontFamily: fonts.bold }]}>
+            {willUseFreeze ? t.streakProtected : t.missedWakeUp}
+          </Text>
 
-          <View style={styles.bulletList}>
-            <BulletRow icon="trending-down" text={t.streakReset} fontFamily={fonts.regular} />
-            <BulletRow icon="minus-circle" text={t.scoreDrop} fontFamily={fonts.regular} />
-            <BulletRow icon="sunrise" text={t.tryTomorrow} fontFamily={fonts.regular} />
-          </View>
+          {willUseFreeze ? (
+            <View style={[styles.bulletList, styles.bulletListBlue]}>
+              <BulletRow
+                icon="shield"
+                text={t.freezeConsumed}
+                color="rgba(96,165,250,0.8)"
+                fontFamily={fonts.regular}
+              />
+              <BulletRow
+                icon="trending-up"
+                text={t.streakProtectedSub}
+                color="rgba(96,165,250,0.8)"
+                fontFamily={fonts.regular}
+              />
+              <BulletRow
+                icon="sunrise"
+                text={t.tryTomorrow}
+                color="rgba(96,165,250,0.8)"
+                fontFamily={fonts.regular}
+              />
+            </View>
+          ) : (
+            <View style={styles.bulletList}>
+              <BulletRow
+                icon="trending-down"
+                text={t.streakReset}
+                color="rgba(255,68,68,0.7)"
+                fontFamily={fonts.regular}
+              />
+              <BulletRow
+                icon="minus-circle"
+                text={t.scoreDrop}
+                color="rgba(255,68,68,0.7)"
+                fontFamily={fonts.regular}
+              />
+              <BulletRow
+                icon="sunrise"
+                text={t.tryTomorrow}
+                color="rgba(255,68,68,0.7)"
+                fontFamily={fonts.regular}
+              />
+            </View>
+          )}
         </View>
 
         <Pressable
@@ -74,10 +133,20 @@ export default function AlarmFailureScreen() {
   );
 }
 
-function BulletRow({ icon, text, fontFamily }: { icon: string; text: string; fontFamily: string }) {
+function BulletRow({
+  icon,
+  text,
+  color,
+  fontFamily,
+}: {
+  icon: string;
+  text: string;
+  color: string;
+  fontFamily: string;
+}) {
   return (
     <View style={styles.bulletRow}>
-      <Feather name={icon as any} size={15} color="rgba(255,68,68,0.7)" />
+      <Feather name={icon as any} size={15} color={color} />
       <Text style={[styles.bulletText, { fontFamily }]}>{text}</Text>
     </View>
   );
@@ -100,6 +169,9 @@ const styles = StyleSheet.create({
     top: '15%',
     alignSelf: 'center',
   },
+  glowBlue: {
+    backgroundColor: '#3B82F6',
+  },
   content: {
     alignItems: 'center',
     paddingHorizontal: 36,
@@ -116,6 +188,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,68,68,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconWrapBlue: {
+    backgroundColor: 'rgba(96,165,250,0.1)',
+    borderColor: 'rgba(96,165,250,0.35)',
   },
   textBlock: {
     alignItems: 'center',
@@ -137,6 +213,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,68,68,0.15)',
     borderRadius: 16,
     padding: 20,
+  },
+  bulletListBlue: {
+    backgroundColor: 'rgba(96,165,250,0.06)',
+    borderColor: 'rgba(96,165,250,0.2)',
   },
   bulletRow: {
     flexDirection: 'row',

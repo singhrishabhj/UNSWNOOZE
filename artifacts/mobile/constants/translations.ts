@@ -86,6 +86,14 @@ export const translations = {
     weeklyActivity: 'This Week',
     dayNames: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
     noHistoryYet: 'Complete your first alarm to start tracking.',
+
+    // Streak freeze (Snap)
+    streakProtected: 'Streak Protected!',
+    streakProtectedSub: 'A Streak Freeze (Snap) was automatically used.',
+    freezeConsumed: '1 Streak Freeze consumed.',
+    freezeEarned: 'Streak Freeze Earned!',
+    freezeEarnedSub: 'Reach the next multiple of 3 days to earn another.',
+    streakFreezeAvailable: (n: number) => `${n} Freeze${n !== 1 ? 's' : ''} available`,
   },
 
   hi: {
@@ -173,6 +181,14 @@ export const translations = {
     weeklyActivity: 'इस सप्ताह',
     dayNames: ['र', 'सो', 'मं', 'बु', 'गु', 'शु', 'श'],
     noHistoryYet: 'ट्रैकिंग शुरू करने के लिए पहला अलार्म पूरा करें।',
+
+    // Streak freeze (Snap)
+    streakProtected: 'लकीर सुरक्षित!',
+    streakProtectedSub: 'एक स्ट्रीक फ्रीज़ (स्नैप) स्वचालित रूप से उपयोग हुई।',
+    freezeConsumed: '1 स्ट्रीक फ्रीज़ उपयोग की गई।',
+    freezeEarned: 'स्ट्रीक फ्रीज़ मिली!',
+    freezeEarnedSub: 'अगली 3-दिन की सीमा पर एक और मिलेगी।',
+    streakFreezeAvailable: (n: number) => `${n} फ्रीज़ उपलब्ध`,
   },
 };
 

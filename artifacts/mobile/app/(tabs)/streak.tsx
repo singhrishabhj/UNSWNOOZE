@@ -198,7 +198,7 @@ export default function StreakScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top + 16;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  const { currentStreak, bestStreak, totalWakeUps, weeklyHistory = [] } = data;
+  const { currentStreak, bestStreak, totalWakeUps, streakFreezeCount = 0, weeklyHistory = [] } = data;
 
   const cardBg = isDark ? colors.surface : colors.card;
   const trackColor = isDark ? colors.surfaceElevated : colors.surface;
@@ -262,6 +262,26 @@ export default function StreakScreen() {
             textMuted={mutedColor}
           />
         </View>
+      </View>
+
+      {/* ── Streak Freeze (Snap) card ── */}
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: colors.border }]}>
+        <View style={styles.freezeRow}>
+          <View>
+            <Text style={[styles.cardLabel, { color: colors.textSecondary, fontFamily: fonts.semiBold }]}>
+              STREAK FREEZE (SNAP)
+            </Text>
+            <Text style={[styles.freezeValue, { color: '#60a5fa', fontFamily: fonts.bold }]}>
+              {streakFreezeCount} available
+            </Text>
+          </View>
+          <View style={styles.freezeIconWrap}>
+            <Feather name="shield" size={28} color="#60a5fa" />
+          </View>
+        </View>
+        <Text style={[styles.freezeHint, { color: mutedColor, fontFamily: fonts.regular }]}>
+          Earned every 3 days of streak. Protects your streak if you miss a day.
+        </Text>
       </View>
 
       {/* ── Next milestone progress ── */}
@@ -400,6 +420,31 @@ const styles = StyleSheet.create({
     fontSize: 17,
     letterSpacing: -0.3,
     marginBottom: 2,
+  },
+
+  // Streak freeze card
+  freezeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  freezeValue: {
+    fontSize: 22,
+    letterSpacing: -0.5,
+    marginTop: 4,
+  },
+  freezeIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: 'rgba(96,165,250,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  freezeHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: -4,
   },
 
   // Stats row

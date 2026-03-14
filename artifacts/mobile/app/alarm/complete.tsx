@@ -156,6 +156,10 @@ export default function AlarmCompleteScreen() {
   const currentStreak = data.currentStreak;
   const [displayStreak, setDisplayStreak] = useState(Math.max(0, currentStreak - 1));
 
+  // A Streak Freeze is earned whenever the streak crosses a multiple-of-3 boundary.
+  // currentStreak is already the post-completion value at this point.
+  const freezeEarned = currentStreak > 0 && currentStreak % 3 === 0;
+
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   useEffect(() => {
@@ -320,6 +324,21 @@ export default function AlarmCompleteScreen() {
             </Text>
           </View>
         </Animated.View>
+
+        {/* Streak Freeze Earned banner — shown when streak hits a multiple of 3 */}
+        {freezeEarned && (
+          <View style={styles.freezeBanner}>
+            <Feather name="shield" size={18} color="#60a5fa" />
+            <View style={styles.freezeBannerText}>
+              <Text style={[styles.freezeBannerTitle, { fontFamily: fonts.semiBold }]}>
+                {t.freezeEarned}
+              </Text>
+              <Text style={[styles.freezeBannerSub, { fontFamily: fonts.regular }]}>
+                {t.freezeEarnedSub}
+              </Text>
+            </View>
+          </View>
+        )}
       </Animated.View>
     </LinearGradient>
   );
@@ -406,5 +425,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_700Bold',
     color: Colors.primary,
+  },
+
+  // Streak Freeze Earned banner
+  freezeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(96,165,250,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(96,165,250,0.25)',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  freezeBannerText: {
+    flex: 1,
+    gap: 3,
+  },
+  freezeBannerTitle: {
+    fontSize: 14,
+    color: '#93c5fd',
+    letterSpacing: 0.2,
+  },
+  freezeBannerSub: {
+    fontSize: 12,
+    color: 'rgba(147,197,253,0.65)',
+    lineHeight: 17,
   },
 });
