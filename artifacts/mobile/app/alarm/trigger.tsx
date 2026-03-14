@@ -56,14 +56,19 @@ export default function AlarmTriggerScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  // ─── Stop speech helper ────────────────────────────────────────────────────
+  // ─── Stop speech helper (native + web) ────────────────────────────────────
   const stopSpeech = useCallback(() => {
     speechStoppedRef.current = true;
     if (speechPauseRef.current) {
       clearTimeout(speechPauseRef.current);
       speechPauseRef.current = null;
     }
+    // Native TTS
     try { Speech.stop(); } catch {}
+    // Web SpeechSynthesis
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
   }, []);
 
   // ─── Start looping alarm + speech on mount ─────────────────────────────────
@@ -89,26 +94,53 @@ export default function AlarmTriggerScreen() {
       startAlarm();
     }
 
-    if (Platform.OS !== 'web' && useVoice) {
+    if (useVoice) {
       // Voice mode: speak "Title. Wake up." on a 2.5 s loop.
+      // Works on both native (expo-speech) and web (SpeechSynthesis API).
       const spokenText = `${rawTitle}. Wake up.`;
 
       const doSpeak = () => {
         if (speechStoppedRef.current) return;
-        try {
-          Speech.speak(spokenText, {
-            language: 'en',
-            pitch: 1.0,
-            rate: 0.85,
-            onDone: () => {
-              if (!speechStoppedRef.current) {
-                speechPauseRef.current = setTimeout(doSpeak, 2500);
-              }
-            },
-            onError: () => {},
-          });
-        } catch {}
+
+        const scheduleNext = () => {
+          if (!speechStoppedRef.current) {
+            speechPauseRef.current = setTimeout(doSpeak, 2500);
+          }
+        };
+
+        if (Platform.OS === 'web') {
+          // Web: use the browser's built-in SpeechSynthesis API.
+          // expo-speech is a native-only module and is a no-op on web.
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+              const utterance = new SpeechSynthesisUtterance(spokenText);
+              utterance.lang = 'en-US';
+              utterance.rate = 0.85;
+              utterance.pitch = 1.0;
+              utterance.onend = scheduleNext;
+              utterance.onerror = scheduleNext; // never get stuck
+              window.speechSynthesis.cancel(); // clear any queued utterances first
+              window.speechSynthesis.speak(utterance);
+            } catch { scheduleNext(); }
+          } else {
+            // SpeechSynthesis unavailable — keep scheduling so the loop stays
+            // alive; silence is better than an infinite crash loop.
+            scheduleNext();
+          }
+        } else {
+          // Native: use expo-speech
+          try {
+            Speech.speak(spokenText, {
+              language: 'en',
+              pitch: 1.0,
+              rate: 0.85,
+              onDone: scheduleNext,
+              onError: scheduleNext, // never get stuck
+            });
+          } catch { scheduleNext(); }
+        }
       };
+
       speakLoopRef.current = doSpeak;
 
       // Short lead-in so the user hears the haptic before speech starts.

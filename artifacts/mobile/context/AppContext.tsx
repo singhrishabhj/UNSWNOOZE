@@ -122,12 +122,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadData = async () => {
     const stored = await storageService.load<AppData>(DEFAULT_DATA);
-    // Forward-compatible field migrations
+    // Forward-compatible top-level field migrations
     if (stored.totalWakeUps === undefined) stored.totalWakeUps = 0;
     if (stored.totalSnoozes === undefined) stored.totalSnoozes = 0;
     if (stored.weeklyHistory === undefined) stored.weeklyHistory = [];
     if (stored.disciplineScore === undefined) {
       stored.disciplineScore = Math.min(100, stored.currentStreak * 5);
+    }
+    // Per-alarm field migrations — ensure every alarm has all required fields.
+    // soundType was added after initial release; old alarms default to 'standard'.
+    if (Array.isArray(stored.alarms)) {
+      stored.alarms = stored.alarms.map(a => ({
+        soundType: 'standard' as SoundType,
+        wakeTask: 'face' as WakeTask,
+        ...a,
+      }));
     }
     setData(stored);
     updateAchievements(stored.currentStreak, stored.totalWakeUps);
