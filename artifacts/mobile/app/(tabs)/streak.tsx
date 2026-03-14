@@ -331,7 +331,7 @@ export default function StreakScreen() {
 
         {/* Legend */}
         <View style={styles.legend}>
-          {(['success', 'snoozed', 'missed'] as DayOutcome[]).map(o => {
+          {(['success', 'snoozed', 'missed'] as Array<'success' | 'snoozed' | 'missed'>).map(o => {
             const cfg = OUTCOME_CONFIG[o];
             const labels = { success: 'Success', snoozed: 'Snoozed', missed: 'Missed' };
             return (

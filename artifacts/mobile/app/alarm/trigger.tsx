@@ -35,6 +35,20 @@ export default function AlarmTriggerScreen() {
   const { data, recordSnooze } = useApp();
 
   const alarm = data.alarms.find(a => a.id === alarmId);
+
+  // Always-current reference to the alarm object.
+  // The sound-start effect ([] deps) reads from this ref instead of the
+  // render-scope `alarm` variable. This avoids the stale-closure bug where
+  // AppContext.loadData() hasn't finished by the time the first render runs,
+  // leaving `alarm` as undefined and causing the effect to always fall back to
+  // standard (beep) mode even when the user selected voice mode.
+  const alarmRef = useRef(alarm);
+  alarmRef.current = alarm; // updated on every render, never stale
+
+  // Guards the sound-start block so a retry tick that fires after the alarm
+  // data arrives doesn't start the sound a second time.
+  const soundStartedRef = useRef(false);
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [quote] = useState(() => MOTIVATIONAL[Math.floor(Math.random() * MOTIVATIONAL.length)]);
 
@@ -56,6 +70,10 @@ export default function AlarmTriggerScreen() {
   // useEffect cleanup knows NOT to stop the alarm (which must keep ringing
   // through the task screen until task.tsx calls stopAlarm()).
   const navigatingToTaskRef = useRef(false);
+  // Timer ID for the voice-mode lead-in delay; stored so cleanup can cancel it.
+  const voiceLeadInRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timer ID for the data-not-ready retry loop.
+  const soundRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -77,6 +95,7 @@ export default function AlarmTriggerScreen() {
 
   // ─── Start looping alarm + speech on mount ─────────────────────────────────
   useEffect(() => {
+    // ── Animation + haptics: start immediately, require no alarm data ─────────
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.08, duration: 800, useNativeDriver: true }),
@@ -86,19 +105,41 @@ export default function AlarmTriggerScreen() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-    // Resolve mode once at mount. Voice mode requires a non-empty title —
-    // if title is absent we fall back to the standard beep so the alarm never
-    // silently fails.
-    const rawTitle = (alarm?.title ?? '').trim();
-    const useVoice = alarm?.soundType === 'voice' && rawTitle.length > 0;
-    isVoiceModeRef.current = useVoice;
+    // ── Sound start: reads from alarmRef (never stale) with retry ─────────────
+    // WHY: AppContext.loadData() is async. If this screen is pushed before the
+    // initial load completes (e.g. tapping a notification immediately after cold
+    // launch), the closure-captured `alarm` variable from the render scope would
+    // be undefined, causing soundType to fall back to 'standard' even for voice-
+    // mode alarms.  By reading alarmRef.current (updated on every render) from
+    // inside a callback and retrying every 200 ms until it's populated, we
+    // guarantee we always use the correct, user-chosen sound mode.
+    const startSound = () => {
+      const alarmData = alarmRef.current;
 
-    if (!useVoice) {
-      // Standard mode: looping beep. Voice mode plays no system sound.
-      startAlarm();
-    }
+      if (!alarmData) {
+        // Data not ready yet — retry after next context re-render flush.
+        soundRetryRef.current = setTimeout(startSound, 200);
+        return;
+      }
 
-    if (useVoice) {
+      // Idempotency guard: if a retry fires concurrently with the data arriving,
+      // only the first invocation proceeds.
+      if (soundStartedRef.current) return;
+      soundStartedRef.current = true;
+
+      const rawTitle = (alarmData.title ?? '').trim();
+      // Voice mode requires both soundType === 'voice' AND a non-empty title.
+      // Fall back to standard beep if the title is blank so the alarm never
+      // silently fails.
+      const useVoice = alarmData.soundType === 'voice' && rawTitle.length > 0;
+      isVoiceModeRef.current = useVoice;
+
+      if (!useVoice) {
+        // Standard mode: looping beep. Voice mode plays no beep.
+        startAlarm();
+        return;
+      }
+
       // Voice mode: speak "Title. Wake up." on a 2.5 s loop.
       // Works on both native (expo-speech) and web (SpeechSynthesis API).
       const spokenText = `${rawTitle}. Wake up.`;
@@ -148,23 +189,32 @@ export default function AlarmTriggerScreen() {
       speakLoopRef.current = doSpeak;
 
       // Short lead-in so the user hears the haptic before speech starts.
-      const initialDelay = setTimeout(() => {
+      voiceLeadInRef.current = setTimeout(() => {
         speakLoopRef.current?.();
       }, 500);
+    };
 
-      return () => {
-        clearTimeout(initialDelay);
-        stopSpeech();
-        if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
-      };
-    }
+    startSound();
 
-    // Standard mode cleanup: stop the alarm sound if the screen unmounts for
-    // any reason OTHER than intentional navigation to the task screen.
-    // When the user taps "Wake Up Now", navigatingToTaskRef is set to true
-    // first so we leave the alarm ringing through task.tsx (which stops it
-    // explicitly via stopAlarm() in handleSuccess / handleGiveUp).
+    // ── Unified cleanup ────────────────────────────────────────────────────────
+    // Runs on unmount (or StrictMode double-mount dev re-run).
     return () => {
+      // Cancel a pending data-not-ready retry.
+      if (soundRetryRef.current) {
+        clearTimeout(soundRetryRef.current);
+        soundRetryRef.current = null;
+      }
+      // Cancel a pending voice-mode lead-in.
+      if (voiceLeadInRef.current) {
+        clearTimeout(voiceLeadInRef.current);
+        voiceLeadInRef.current = null;
+      }
+      // Stop speech (voice mode). Safe to call in standard mode — it's a no-op.
+      stopSpeech();
+      // Stop alarm beep only when NOT intentionally navigating to the task
+      // screen (navigatingToTaskRef set in handleCompleteTask). The alarm must
+      // keep ringing through task.tsx so the user is pressured to complete the
+      // wake-up task — task.tsx calls stopAlarm() on success or give-up.
       if (!navigatingToTaskRef.current) {
         stopAlarm();
       }

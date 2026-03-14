@@ -18,9 +18,9 @@ let _player: ReturnType<typeof createAudioPlayer> | null = null;
 async function _startNativeAlarm(): Promise<void> {
   try {
     await setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: false,
-      staysActiveInBackground: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
     });
 
     if (_player) {

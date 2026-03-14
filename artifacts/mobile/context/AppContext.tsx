@@ -155,9 +155,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // soundType was added after initial release; old alarms default to 'standard'.
     if (Array.isArray(stored.alarms)) {
       stored.alarms = stored.alarms.map(a => ({
-        soundType: 'standard' as SoundType,
-        wakeTask: 'face' as WakeTask,
         ...a,
+        soundType: (a.soundType ?? 'standard') as SoundType,
+        wakeTask: (a.wakeTask ?? 'face') as WakeTask,
       }));
     }
     setData(stored);
