@@ -1,0 +1,372 @@
+You are a **senior mobile engineer preparing an Expo React Native application for full production release**.
+
+Project: **UNSNWOOZE**
+
+UNSNWOOZE is a **smart alarm application where users wake up and complete tasks to stop the alarm**.
+
+Tech stack:
+
+• Expo
+• React Native
+• Expo Router
+
+Your goal is to **stabilize the existing codebase, fix alarm issues, prepare the app for production, and ensure it runs smoothly on Android and iOS**.
+
+IMPORTANT RULES:
+
+• Do NOT rewrite the entire project
+• Modify only the necessary files
+• Keep dependencies minimal
+• Avoid heavy libraries
+• Ensure the app **never crashes**
+• Ensure **alarm functionality works reliably**
+• Ensure compatibility with **Android and iOS production builds**
+
+Focus on **stability, performance, and production readiness**.
+
+---
+
+# PART 1 — Fix Alarm Not Ringing (CRITICAL)
+
+Currently the alarm **does not ring when scheduled**.
+
+Implement a reliable alarm scheduling system using:
+
+expo-notifications
+
+Requirements:
+
+• Alarm triggers at scheduled time
+• Alarm works when app is backgrounded
+• Alarm works when app is closed
+• Alarm shows notification
+• Alarm sound plays immediately
+
+Create a **high priority Android notification channel** for alarms.
+
+Ensure alarm scheduling logic includes:
+
+• correct trigger time
+• timezone handling
+• persistence using AsyncStorage
+
+When the app launches, reload stored alarms and re-register them.
+
+---
+
+# PART 2 — Fix Alarm Title Speech (CRITICAL)
+
+Currently the feature **"Speak Alarm Title" is not working**.
+
+If user enables:
+
+"Speak Alarm Title"
+
+Then when alarm triggers:
+
+1. Alarm sound must play
+2. Alarm title must be spoken using text-to-speech
+
+Use:
+
+expo-speech
+
+Example:
+
+Alarm title = "Wake up for morning workout"
+
+When alarm rings:
+
+Sound plays
+Speech says: "Wake up for morning workout"
+
+Requirements:
+
+• speech must trigger only once
+• speech must not repeat infinitely
+• speech must handle empty titles safely
+• speech must not crash the app
+
+Speech should start **after alarm sound begins**.
+
+---
+
+# PART 3 — Production Build Configuration
+
+Update **app.json or app.config.js**.
+
+Ensure it includes:
+
+• name: UNSNWOOZE
+• unique bundle identifier
+• version
+• android versionCode
+• splash screen configuration
+• icon configuration
+• orientation
+• userInterfaceStyle
+
+Required fields:
+
+name
+slug
+version
+orientation
+icon
+scheme
+userInterfaceStyle
+splash
+ios.bundleIdentifier
+android.package
+android.versionCode
+
+Ensure identifiers are valid for **App Store and Play Store submission**.
+
+---
+
+# PART 4 — Notification Permissions
+
+Since this is an alarm app, notifications must be configured correctly.
+
+Add permission request on first launch.
+
+iOS permission description example:
+
+"UNSNWOOZE needs notification permission to trigger your alarms."
+
+Ensure notification channel for alarms is **high priority**.
+
+---
+
+# PART 5 — Remove Deprecated Libraries
+
+Remove libraries that cause crashes.
+
+Remove:
+
+expo-face-detector
+
+Error currently:
+
+Cannot find native module 'ExpoFaceDetector'
+
+Steps:
+
+• remove dependency
+• remove imports
+• remove unused code
+
+Replace deprecated:
+
+expo-av
+
+with:
+
+expo-audio (only where alarm sound is used).
+
+---
+
+# PART 6 — Create Settings Section
+
+Create Settings screen.
+
+Route:
+
+app/settings/index.tsx
+
+Settings menu must include:
+
+• About UNSNWOOZE
+• Privacy Policy
+• Terms of Use
+• Alarm Settings
+• App Version
+• Support / Contact
+
+Navigation structure:
+
+Settings
+→ About
+→ Privacy Policy
+→ Terms of Use
+
+---
+
+# PART 7 — About Page
+
+Create:
+
+app/settings/about.tsx
+
+Content:
+
+UNSNWOOZE is a smart alarm app designed to help users wake up on time and avoid snoozing.
+
+The app ensures accountability by requiring wake-up verification tasks.
+
+Features:
+
+• Smart alarm scheduling
+• Alarm title voice reminder
+• Wake-up verification tasks
+• Reliable cross-platform alarms
+
+---
+
+# PART 8 — Privacy Policy
+
+Create:
+
+app/settings/privacy.tsx
+
+Policy summary:
+
+Information Collected:
+
+• alarm titles
+• alarm schedules
+• device permissions
+
+Data Usage:
+
+Used only for alarm functionality.
+
+Data Storage:
+
+Stored locally on the device.
+
+No Data Sharing:
+
+The app does not sell or share user data with third parties.
+
+---
+
+# PART 9 — Terms of Use
+
+Create:
+
+app/settings/terms.tsx
+
+Include:
+
+Users agree to use the app responsibly.
+
+Missed alarms may occur due to:
+
+• disabled notifications
+• device power restrictions
+• operating system interruptions.
+
+---
+
+# PART 10 — Alarm Settings
+
+Add alarm settings options:
+
+• alarm sound selection
+• enable/disable voice alarm title
+• default snooze duration
+
+Store preferences using:
+
+AsyncStorage
+
+---
+
+# PART 11 — Crash Prevention
+
+Ensure the app **never crashes due to runtime errors**.
+
+Add safeguards:
+
+• try/catch around alarm scheduling
+• validate alarm time input
+• validate alarm title
+• check notification permissions
+• check camera permissions
+
+Use safe error handling:
+
+console.error
+user-friendly alerts
+
+---
+
+# PART 12 — Production Code Practices
+
+Ensure:
+
+• no infinite re-renders
+• no unsafe async operations
+• clean up timers and listeners
+• remove unused imports
+• remove deprecated APIs
+• prevent memory leaks
+
+Each component must include:
+
+• default export
+• safe state handling
+• permission checks
+• proper error handling
+
+---
+
+# PART 13 — App Store & Play Store Compliance
+
+Ensure the app contains accessible pages for:
+
+• Privacy Policy
+• Terms of Use
+• About page
+
+Accessible from Settings.
+
+Ensure:
+
+• permission descriptions exist
+• icons exist
+• splash screen exists
+• debug logs removed
+
+---
+
+# PART 14 — Production Testing
+
+Provide instructions to test production builds.
+
+Android:
+
+eas build -p android
+
+iOS:
+
+eas build -p ios
+
+Verify in production build:
+
+• alarm scheduling works
+• alarm rings
+• alarm sound plays
+• alarm title speech works
+• navigation works
+• app does not crash
+
+---
+
+# EXPECTED OUTPUT
+
+Provide:
+
+1. Files to add
+2. Files to modify
+3. Production-ready code snippets
+4. Updated app.json
+5. Alarm scheduling logic fix
+6. Alarm speech fix
+7. Build instructions
+8. Testing checklist
+
+Do NOT regenerate the entire project.
+
+Focus only on stabilizing and preparing the **existing UNSNWOOZE application for production release**.

@@ -11,6 +11,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Speech from 'expo-speech';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   Alert,
@@ -46,9 +47,10 @@ export default function WakeTaskScreen() {
   const cameraRef = useRef<CameraView>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
 
-  // Shared success handler — stops alarm THEN records success and navigates
+  // Shared success handler — stops speech + alarm, records success, navigates
   const handleSuccess = useCallback(async () => {
-    await stopAlarm();                              // alarm silenced here
+    try { Speech.stop(); } catch {}               // stop any looping speech
+    await stopAlarm();                             // stop alarm sound
     completeWakeUp();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setTimeout(() => {
@@ -56,8 +58,9 @@ export default function WakeTaskScreen() {
     }, 600);
   }, [completeWakeUp, alarmId]);
 
-  // Give-up handler — stop alarm and record failure
+  // Give-up handler — stops speech + alarm, records failure
   const handleGiveUp = useCallback(async () => {
+    try { Speech.stop(); } catch {}               // stop any looping speech
     await stopAlarm();
     router.replace({ pathname: '/alarm/failure', params: { alarmId } });
   }, [alarmId]);

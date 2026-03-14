@@ -43,10 +43,28 @@ export default function AlarmTriggerScreen() {
   const [snoozeCountdown, setSnoozeCountdown] = useState(SNOOZE_SECONDS);
   const snoozeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ─── Speech management refs ────────────────────────────────────────────────
+  // speechStoppedRef gates the recursive speak loop so it stops cleanly even
+  // when the onDone callback fires after navigation / snooze.
+  const speechStoppedRef = useRef(false);
+  const speechPauseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stable reference to the recursive speak function, built once on mount.
+  const speakLoopRef = useRef<(() => void) | null>(null);
+
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  // Start looping alarm on mount; stop cleanly on unmount
+  // ─── Stop speech helper ────────────────────────────────────────────────────
+  const stopSpeech = useCallback(() => {
+    speechStoppedRef.current = true;
+    if (speechPauseRef.current) {
+      clearTimeout(speechPauseRef.current);
+      speechPauseRef.current = null;
+    }
+    try { Speech.stop(); } catch {}
+  }, []);
+
+  // ─── Start looping alarm + speech on mount ─────────────────────────────────
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -56,23 +74,51 @@ export default function AlarmTriggerScreen() {
     ).start();
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    // Start the alarm (expo-audio on native, AudioContext on web)
     startAlarm();
 
-    // Speak alarm title using TTS after a short delay so the sound leads
+    // Build the speak-loop function. Capture alarm details once at mount so
+    // the closure is stable across the component's lifecycle.
     if (Platform.OS !== 'web') {
-      const title = data.alarms.find(a => a.id === alarmId)?.title ?? 'Wake Up';
-      setTimeout(() => {
-        Speech.speak(title, { language: 'en', pitch: 1.0, rate: 0.9 });
+      const title = (alarm?.title ?? '').trim() || 'Wake Up';
+      // voice mode → repeat title in a loop; standard mode → announce once
+      const isVoice = alarm?.soundType === 'voice';
+
+      const doSpeak = () => {
+        if (speechStoppedRef.current) return;
+        try {
+          Speech.speak(title, {
+            language: 'en',
+            pitch: 1.0,
+            rate: 0.9,
+            onDone: () => {
+              // Loop again after 2.5 s gap — both modes loop until task done
+              if (!speechStoppedRef.current) {
+                speechPauseRef.current = setTimeout(doSpeak, isVoice ? 2500 : 8000);
+              }
+            },
+            onError: () => {},
+          });
+        } catch {}
+      };
+      speakLoopRef.current = doSpeak;
+
+      // Let the alarm sound lead by 1.2 s before first announcement.
+      // doSpeak() checks speechStoppedRef internally — no need to force-reset here.
+      const initialDelay = setTimeout(() => {
+        speakLoopRef.current?.();
       }, 1200);
+
+      return () => {
+        clearTimeout(initialDelay);
+        stopSpeech();
+        if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
+      };
     }
 
     return () => {
-      // Only stop alarm if we haven't navigated to the task screen.
-      // If the user tapped "Complete Task", alarm is kept alive deliberately
-      // and will be stopped by task.tsx on success or give-up.
       if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSnooze = useCallback(() => {
@@ -81,8 +127,8 @@ export default function AlarmTriggerScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSnoozed(true);
     setSnoozeUsed(true);
-    // Stop alarm for the snooze duration
     stopAlarm();
+    stopSpeech(); // silence speech during snooze
 
     let remaining = SNOOZE_SECONDS;
     setSnoozeCountdown(remaining);
@@ -95,19 +141,24 @@ export default function AlarmTriggerScreen() {
         snoozeTimerRef.current = null;
         setSnoozed(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        // Restart alarm after snooze
         startAlarm();
+        // Restart speech loop after snooze
+        if (Platform.OS !== 'web') {
+          speechStoppedRef.current = false;
+          setTimeout(() => speakLoopRef.current?.(), 1200);
+        }
       }
     }, 1000);
-  }, [snoozeUsed, snoozed, recordSnooze]);
+  }, [snoozeUsed, snoozed, recordSnooze, stopSpeech]);
 
   const handleCompleteTask = useCallback(() => {
     if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
-    // Do NOT stop the alarm here — it must keep ringing through the task
-    // screen until the liveness check is fully completed.
+    // Speech stops here; alarm SOUND keeps ringing through the task screen
+    // and is stopped only by task.tsx on success or give-up.
+    stopSpeech();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.replace({ pathname: '/alarm/task', params: { alarmId } });
-  }, [alarmId]);
+  }, [alarmId, stopSpeech]);
 
   const snoozeMinutes = Math.floor(snoozeCountdown / 60);
   const snoozeSeconds = snoozeCountdown % 60;
@@ -133,9 +184,17 @@ export default function AlarmTriggerScreen() {
 
         <View style={styles.soundRow}>
           <View style={styles.soundIndicator}>
-            <Feather name="volume-2" size={13} color={Colors.primary} />
+            <Feather
+              name={snoozed ? 'moon' : alarm?.soundType === 'voice' ? 'mic' : 'volume-2'}
+              size={13}
+              color={Colors.primary}
+            />
             <Text style={styles.soundText}>
-              {snoozed ? 'Alarm snoozed' : 'Alarm ringing'}
+              {snoozed
+                ? 'Alarm snoozed'
+                : alarm?.soundType === 'voice'
+                ? 'Speaking alarm title'
+                : 'Alarm ringing'}
             </Text>
           </View>
         </View>
