@@ -1,9 +1,9 @@
 import { Feather } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -31,24 +31,63 @@ export default function WakeTaskScreen() {
 
   const task = alarm?.wakeTask ?? 'face';
 
-  /* ─── Toothpaste flow state ─── */
+  // Toothpaste flow state
   const [toothStep, setToothStep] = useState<ToothpasteStep>('instructions');
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
   const spinAnim = useRef(new Animated.Value(0)).current;
 
-  /* ─── Shared success handler ─── */
-  const handleSuccess = () => {
+  // Shared success handler — marks wake-up complete and routes to success screen
+  const handleSuccess = useCallback(() => {
     completeWakeUp();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setTimeout(() => {
       router.replace({ pathname: '/alarm/complete', params: { alarmId } });
     }, 600);
-  };
+  }, [completeWakeUp, alarmId]);
 
-  const handleGiveUp = () => {
+  const handleGiveUp = useCallback(() => {
     router.replace({ pathname: '/alarm/failure', params: { alarmId } });
-  };
+  }, [alarmId]);
 
-  /* ─── Face task ─── */
+  // Run the verifying animation then complete the task
+  const startVerifying = useCallback(() => {
+    setToothStep('verifying');
+    Animated.loop(
+      Animated.timing(spinAnim, { toValue: 1, duration: 1200, useNativeDriver: true })
+    ).start();
+    setTimeout(() => {
+      setToothStep('done');
+      handleSuccess();
+    }, 1800);
+  }, [spinAnim, handleSuccess]);
+
+  // Request permission then switch to in-app camera view
+  const openCamera = useCallback(async () => {
+    if (!permission?.granted) {
+      const { granted } = await requestPermission();
+      if (!granted) {
+        Alert.alert('Camera Required', 'Please allow camera access to complete the wake-up task.');
+        return;
+      }
+    }
+    setToothStep('camera');
+  }, [permission, requestPermission]);
+
+  // Capture with the rear camera and begin verification
+  const capturePhoto = useCallback(async () => {
+    if (!cameraRef.current) return;
+    try {
+      await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true });
+      startVerifying();
+    } catch {
+      Alert.alert('Error', 'Could not capture photo. Please try again.');
+    }
+  }, [startVerifying]);
+
+  const rotation = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  // ─── Face verification task ───
   if (task === 'face') {
     return (
       <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
@@ -71,32 +110,7 @@ export default function WakeTaskScreen() {
     );
   }
 
-  /* ─── Toothpaste task ─── */
-  const startVerifying = () => {
-    setToothStep('verifying');
-    Animated.loop(
-      Animated.timing(spinAnim, { toValue: 1, duration: 1200, useNativeDriver: true })
-    ).start();
-    setTimeout(() => {
-      setToothStep('done');
-      handleSuccess();
-    }, 1800);
-  };
-
-  const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Camera Required', 'Please allow camera access to complete the wake-up task.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: false, quality: 0.7 });
-    if (!result.canceled && result.assets[0]) {
-      startVerifying();
-    }
-  };
-
-  const rotation = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
+  // ─── Toothpaste verification task ───
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: bottomPad }]}>
       <View style={styles.topBar}>
@@ -110,11 +124,11 @@ export default function WakeTaskScreen() {
           </View>
           <Text style={styles.taskTitle}>Toothpaste Verification</Text>
           <Text style={styles.taskDesc}>
-            Take a photo of your toothpaste tube. This confirms you are out of bed and starting
-            your morning routine.
+            Take a photo of your toothpaste tube. This confirms you are out of bed and
+            starting your morning routine.
           </Text>
           <Pressable
-            onPress={() => setToothStep('camera')}
+            onPress={openCamera}
             style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
           >
             <LinearGradient
@@ -133,27 +147,22 @@ export default function WakeTaskScreen() {
         </View>
       )}
 
+      {/* In-app rear camera — does NOT open the system camera app */}
       {toothStep === 'camera' && (
         <View style={styles.center}>
-          <View style={styles.iconBig}>
-            <Feather name="camera" size={48} color={Colors.primary} />
+          <Text style={styles.taskTitle}>Point at Toothpaste</Text>
+          <View style={styles.cameraWrapper}>
+            <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+            <View style={styles.cameraOverlay}>
+              <Pressable
+                onPress={capturePhoto}
+                style={({ pressed }) => [styles.captureBtn, { opacity: pressed ? 0.8 : 1 }]}
+              >
+                <View style={styles.captureInner} />
+              </Pressable>
+            </View>
           </View>
-          <Text style={styles.taskTitle}>Take a Photo</Text>
-          <Text style={styles.taskDesc}>Point the camera at your toothpaste tube.</Text>
-          <Pressable
-            onPress={openCamera}
-            style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
-          >
-            <LinearGradient
-              colors={['#FF8C33', Colors.primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.actionBtn}
-            >
-              <Feather name="aperture" size={20} color="#fff" />
-              <Text style={styles.actionBtnText}>Photograph Toothpaste</Text>
-            </LinearGradient>
-          </Pressable>
+          <Text style={styles.taskDesc}>Tap the button to photograph your toothpaste.</Text>
         </View>
       )}
 
@@ -210,11 +219,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,107,0,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
   },
   taskTitle: {
     fontSize: 28,
@@ -258,5 +262,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: 'rgba(255,255,255,0.3)',
+  },
+  // In-app camera
+  cameraWrapper: {
+    width: '100%',
+    height: 300,
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 16,
+  },
+  captureBtn: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#fff',
   },
 });

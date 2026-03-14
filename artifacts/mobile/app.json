@@ -14,9 +14,20 @@
       "backgroundColor": "#0F0F0F"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "UNSNWOOZE uses the camera for face verification and toothpaste challenge wake-up tasks.",
+        "NSUserNotificationsUsageDescription": "UNSNWOOZE uses notifications to trigger your alarms."
+      }
     },
-    "android": {},
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
+      ]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -28,7 +39,12 @@
         }
       ],
       "expo-font",
-      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "UNSNWOOZE uses the camera for face verification and toothpaste challenge wake-up tasks."
+        }
+      ],
       "expo-image-picker"
     ],
     "experiments": {

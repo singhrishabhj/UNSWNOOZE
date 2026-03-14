@@ -1,0 +1,137 @@
+Refactor the UNSNWOOZE alarm app to reduce compute usage, simplify the codebase, and ensure the project runs easily outside Replit.
+The goal is to make the app lightweight, efficient, and fully runnable locally using Expo.
+Do not add new features. Only optimize and simplify the existing system.
+1. Remove Replit Dependencies
+Remove anything related to:
+Replit server
+web backend
+unnecessary node services
+This is a pure mobile Expo app, so it should not require any server to run.
+The app must run using:
+npm install
+npx expo start
+2. Simplify Project Structure
+Refactor the codebase into a clean structure:
+/components
+/screens
+/services
+/hooks
+/utils
+/assets
+Example:
+components
+AlarmCard.tsx
+ProgressBar.tsx
+screens
+HomeScreen.tsx
+StreakScreen.tsx
+SettingsScreen.tsx
+services
+alarmService.ts
+storageService.ts
+notificationService.ts
+3. Reduce Code Size
+Avoid unnecessary abstraction.
+Remove:
+duplicate functions
+unused libraries
+unused components
+unnecessary wrappers
+Keep files short and readable.
+Each screen should ideally stay under 250–300 lines.
+4. Optimize React Performance
+Prevent unnecessary re-renders.
+Use:
+React.memo
+useCallback
+useMemo
+Only where necessary.
+Avoid creating new functions inside render loops.
+5. Optimize Live Clock
+The live clock currently updates every second.
+Ensure it uses a single setInterval timer.
+Example logic:
+update state once per second
+clear interval when component unmounts
+Avoid multiple timers.
+6. Simplify AsyncStorage Usage
+Create a helper service:
+storageService.ts
+Example functions:
+saveAlarms()
+getAlarms()
+saveSettings()
+getSettings()
+saveStreak()
+getStreak()
+This prevents repeating AsyncStorage code everywhere.
+7. Fix Camera Implementation
+Use expo-camera properly so the camera opens inside the app.
+Requirements:
+Front camera → Face scan challenge
+Rear camera → Toothpaste challenge
+Use:
+CameraView
+inside a modal screen.
+Do NOT open the system camera app.
+Handle permission flow properly:
+check permission
+request permission
+fallback if denied
+8. Improve Alarm Scheduling
+Use expo-notifications only.
+Ensure:
+alarms schedule correctly
+snooze works
+repeat days work
+duplicate notifications are prevented
+Create a helper file:
+alarmService.ts
+9. Remove Unnecessary Background Work
+Avoid:
+background loops
+polling
+unnecessary watchers
+The app should only use timers for:
+live clock
+alarm triggers
+Nothing else.
+10. Reduce Bundle Size
+Remove unused libraries.
+Check package.json and remove anything not used.
+Examples often removable:
+unused animation libraries
+unused UI libraries
+unused icon packs
+11. Ensure Clean Expo Configuration
+Verify app.json contains correct permissions:
+For Android:
+"permissions": [
+  "CAMERA",
+  "NOTIFICATIONS"
+]
+For iOS:
+Add camera usage description.
+12. Ensure Easy Local Running
+The project must work locally with:
+npm install
+npx expo start
+Ensure:
+dependencies install correctly
+no Replit configuration required
+camera works on device
+notifications work on device
+13. Code Documentation
+Add small comments explaining:
+alarm scheduling logic
+challenge validation
+streak update logic
+This helps maintainability.
+Final Result
+The optimized project should:
+• run smoothly with Expo
+• work on Android and iOS
+• not require any server
+• have a clean code structure
+• have minimal dependencies
+• reduce Replit compute usage

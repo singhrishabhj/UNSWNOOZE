@@ -54,21 +54,26 @@ Smart alarm app that prevents snooze abuse.
 - **Multi-language**: English and Hindi support
 
 ### Key Files
-- `artifacts/mobile/app/_layout.tsx` — Root layout with providers
+- `artifacts/mobile/app/_layout.tsx` — Root layout (SafeAreaProvider + AppProvider + GestureHandler; no unnecessary wrappers)
 - `artifacts/mobile/app/index.tsx` — Splash screen entry
 - `artifacts/mobile/app/onboarding.tsx` — Swipe onboarding
 - `artifacts/mobile/app/(tabs)/index.tsx` — Home dashboard
+- `artifacts/mobile/app/(tabs)/streak.tsx` — Streak tab (stats, weekly grid, milestones, achievements)
 - `artifacts/mobile/app/(tabs)/settings.tsx` — Settings screen
 - `artifacts/mobile/app/alarm/create.tsx` — Alarm creation/edit
 - `artifacts/mobile/app/alarm/trigger.tsx` — Alarm trigger screen
-- `artifacts/mobile/app/alarm/task.tsx` — Wake-up task (camera)
+- `artifacts/mobile/app/alarm/task.tsx` — Wake-up task (in-app CameraView for both face & toothpaste)
 - `artifacts/mobile/app/alarm/complete.tsx` — Completion screen
-- `artifacts/mobile/context/AppContext.tsx` — Global state (alarms, streak, achievements)
-- `artifacts/mobile/components/DigitalClock.tsx` — Animated digit clock
-- `artifacts/mobile/components/StreakRing.tsx` — Circular streak progress
-- `artifacts/mobile/components/AlarmCard.tsx` — Alarm list card
-- `artifacts/mobile/components/AchievementBadge.tsx` — Achievement display
+- `artifacts/mobile/context/AppContext.tsx` — Global state (alarms, streak, weeklyHistory, achievements)
+- `artifacts/mobile/services/storage.ts` — Typed AsyncStorage wrapper (storageService.load/save)
+- `artifacts/mobile/components/DigitalClock.tsx` — Animated digit clock (single setInterval, cleanup on unmount)
+- `artifacts/mobile/components/StreakRing.tsx` — Circular streak progress (React.memo)
+- `artifacts/mobile/components/AlarmCard.tsx` — Alarm list card (React.memo)
+- `artifacts/mobile/components/AchievementBadge.tsx` — Achievement display (React.memo)
+- `artifacts/mobile/components/FaceLivenessCheck.tsx` — In-app front-camera face verification (expo-camera CameraView)
 - `artifacts/mobile/constants/colors.ts` — Color system (primary: #FF6B00)
+- `artifacts/mobile/constants/translations.ts` — EN + HI translation strings
+- `artifacts/mobile/hooks/useTranslation.ts` — Language hook returning t, fonts, lang
 
 ### Color System
 - Primary: `#FF6B00` (orange)
@@ -78,5 +83,20 @@ Smart alarm app that prevents snooze abuse.
 - Light surface: `#F5F5F5`
 
 ### Data Persistence
-- AsyncStorage at key `@unsnwooze_data`
-- Stores: alarms, streak data, achievements, theme/language preferences
+- `services/storage.ts` typed wrapper around AsyncStorage (key: `@unsnwooze_data`)
+- Stores: alarms, streak data, weeklyHistory (7-day rolling window), achievements, theme/language preferences
+
+### Camera
+- Both wake-up tasks (face + toothpaste) use `expo-camera` `CameraView` inside the app — the system camera app is never opened
+- iOS permission: `NSCameraUsageDescription` in `app.json > ios.infoPlist`
+- Android permission: `CAMERA` in `app.json > android.permissions`
+- Permission flow: check → request → fallback Alert if denied
+
+### Performance
+- `AlarmCard`, `AchievementBadge`, `StreakRing` wrapped with `React.memo`
+- `useCallback` on all event handlers in task screens
+- `DigitalClock`: single `setInterval` cleared on unmount
+- Root layout has no QueryClientProvider or KeyboardProvider (removed — unused)
+
+### Removed Dependencies (vs original)
+`@tanstack/react-query`, `expo-location`, `react-native-worklets` (re-added as reanimated peer), `@workspace/api-client-react`, `zod`, `zod-validation-error`, `expo-web-browser`, `@react-native-community/datetimepicker`, `expo-image`, `react-native-keyboard-controller`
