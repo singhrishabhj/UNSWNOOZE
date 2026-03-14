@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -55,8 +56,16 @@ export default function AlarmTriggerScreen() {
     ).start();
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    // Start the alarm (expo-av on native, AudioContext on web)
+    // Start the alarm (expo-audio on native, AudioContext on web)
     startAlarm();
+
+    // Speak alarm title using TTS after a short delay so the sound leads
+    if (Platform.OS !== 'web') {
+      const title = data.alarms.find(a => a.id === alarmId)?.title ?? 'Wake Up';
+      setTimeout(() => {
+        Speech.speak(title, { language: 'en', pitch: 1.0, rate: 0.9 });
+      }, 1200);
+    }
 
     return () => {
       // Only stop alarm if we haven't navigated to the task screen.

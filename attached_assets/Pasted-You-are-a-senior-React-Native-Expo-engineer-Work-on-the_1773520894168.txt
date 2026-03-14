@@ -1,0 +1,145 @@
+You are a senior React Native + Expo engineer.
+Work on the existing codebase **without rewriting the entire project**. Only fix the issues listed below and keep the implementation **lightweight, stable, and low-cost in terms of dependencies and compute**.
+
+Project: **UNSNWOOZE alarm app**
+Framework: **Expo + React Native + Expo Router**
+
+Goal: **Make the alarm system reliable and production-ready for both Android and iOS while minimizing additional packages and avoiding expensive architecture changes.**
+
+---
+
+### Issues to Fix
+
+1. **Alarm Ring Not Triggering**
+
+* The alarm sound does not ring when the scheduled time arrives.
+* The feature where the alarm **speaks the alarm title using TTS** is also not working.
+* Ensure the alarm triggers in background and foreground.
+* Use lightweight solutions (prefer `expo-notifications` + `expo-speech` instead of heavy background services).
+
+Expected behavior:
+
+* When the alarm time arrives:
+
+  * Alarm sound plays
+  * The app speaks the alarm title using TTS
+  * Works on **both Android and iOS**
+
+---
+
+2. **Alarm Scheduling UI Problems**
+
+* Android: time selection is laggy or stuck.
+* iOS: time picker does not behave correctly.
+
+Fix:
+
+* Use a stable cross-platform time picker.
+* Ensure smooth state updates.
+* Avoid unnecessary re-renders.
+
+---
+
+3. **App Crash on Android**
+   Errors include:
+
+Route "./alarm/task.tsx" is missing the required default export
+
+Fix:
+
+* Ensure the file exports a proper React component:
+  export default function TaskScreen() {}
+
+---
+
+4. **Router Warning**
+
+No route named "alarm/task" exists in nested children
+
+Fix:
+
+* Correct route structure in Expo Router.
+* Ensure `/app/alarm/task.tsx` is properly registered.
+
+---
+
+5. **ExpoFaceDetector Crash**
+
+Error:
+
+Cannot find native module 'ExpoFaceDetector'
+
+Cause:
+`expo-face-detector` is deprecated.
+
+Fix:
+
+* Remove `expo-face-detector`
+* Replace the liveness logic with a lightweight alternative.
+* If liveness is required, implement using **react-native-vision-camera + MLKit**, but only if necessary.
+* Otherwise keep a minimal camera check to avoid heavy dependencies.
+
+---
+
+6. **Deprecated expo-av**
+
+Replace `expo-av` with:
+
+* `expo-audio`
+* `expo-video`
+
+But only migrate the parts used for alarm sound playback.
+
+---
+
+7. **Alarm Title Voice Not Working**
+
+When alarm rings:
+
+* The app should speak the alarm title using **expo-speech**
+
+Example expected behavior:
+
+Alarm Title: "Morning Workout"
+
+Alarm rings →
+Sound plays →
+TTS speaks: "Morning Workout"
+
+---
+
+### Stability Improvements
+
+Make the alarm system reliable by:
+
+* Preventing multiple alarm triggers
+* Ensuring scheduled alarms persist after app restart
+* Using `AsyncStorage` for alarm persistence
+* Handling edge cases when the app is closed
+
+---
+
+### Performance Requirements
+
+IMPORTANT:
+
+* Do **not add unnecessary dependencies**
+* Avoid large architecture changes
+* Keep bundle size small
+* Keep the fix minimal and production-safe
+
+---
+
+### Expected Output
+
+Provide:
+
+1. Fixed code snippets
+2. Updated alarm trigger logic
+3. Updated router file if needed
+4. Minimal dependency list
+5. Explanation of changes
+
+Do NOT rewrite unrelated files.
+
+Focus only on fixing the issues listed above.

@@ -1,38 +1,38 @@
 /**
- * Alarm sound service — plays a looping alarm on native (expo-av)
+ * Alarm sound service — plays a looping alarm on native (expo-audio)
  * and a Web Audio oscillator pattern on web. Persists across navigation
- * because the Sound object is a module-level singleton.
+ * because the player object is a module-level singleton.
  *
  * Usage:
  *   import { startAlarm, stopAlarm } from '@/services/alarmSound';
  *   await startAlarm();   // starts looping
- *   await stopAlarm();    // stops and unloads
+ *   await stopAlarm();    // stops and releases
  */
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { Platform } from 'react-native';
 
-// ─── Native (expo-av) ────────────────────────────────────────────────────────
+// ─── Native (expo-audio) ─────────────────────────────────────────────────────
 
-let _sound: Audio.Sound | null = null;
+let _player: ReturnType<typeof createAudioPlayer> | null = null;
 
 async function _startNativeAlarm(): Promise<void> {
   try {
-    // iOS: play even when the phone is on silent / Do Not Disturb
-    await Audio.setAudioModeAsync({
+    await setAudioModeAsync({
       playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
       shouldDuckAndroid: false,
+      staysActiveInBackground: true,
     });
 
-    if (_sound) await _stopNativeAlarm(); // clean up previous instance
+    if (_player) {
+      try { _player.release(); } catch {}
+      _player = null;
+    }
 
-    const { sound } = await Audio.Sound.createAsync(
-      // Bundled 1.6 s beep pattern — repeated continuously by isLooping
+    _player = createAudioPlayer(
       require('../assets/sounds/alarm-beep.wav'),
-      { isLooping: true, volume: 1.0 }
     );
-    _sound = sound;
-    await _sound.playAsync();
+    _player.loop = true;
+    _player.play();
   } catch (e) {
     console.warn('[alarmSound] Native start failed:', e);
   }
@@ -40,10 +40,9 @@ async function _startNativeAlarm(): Promise<void> {
 
 async function _stopNativeAlarm(): Promise<void> {
   try {
-    if (_sound) {
-      await _sound.stopAsync();
-      await _sound.unloadAsync();
-      _sound = null;
+    if (_player) {
+      _player.release();
+      _player = null;
     }
   } catch (e) {
     console.warn('[alarmSound] Native stop failed:', e);
@@ -82,7 +81,6 @@ function _startWebAlarm(): void {
       osc.stop(startTime + dur + 0.02);
     };
 
-    // Three-tone pattern: 880 / 880 / 1100 Hz
     const ring = () => {
       if (!_webCtx) return;
       const t = _webCtx.currentTime;

@@ -45,8 +45,8 @@
           "cameraPermission": "UNSNWOOZE uses the camera for face verification and toothpaste challenge wake-up tasks."
         }
       ],
-      "expo-av",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
