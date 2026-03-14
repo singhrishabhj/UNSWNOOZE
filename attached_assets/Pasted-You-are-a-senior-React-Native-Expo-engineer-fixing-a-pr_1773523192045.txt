@@ -1,0 +1,255 @@
+You are a **senior React Native + Expo engineer fixing a production alarm application**.
+
+Project: **UNSNWOOZE**
+
+Framework:
+
+• Expo
+• React Native
+• Expo Router
+
+UNSNWOOZE is an **alarm app where the alarm rings and the user must complete a task to stop it**.
+
+Your job is to **fix the alarm sound mode system so it behaves correctly in production**.
+
+IMPORTANT RULES:
+
+• Do NOT rewrite the entire project
+• Do NOT change unrelated files
+• Only modify the alarm sound logic
+• Keep dependencies minimal
+• Ensure the app does not crash
+• Ensure the alarm works reliably on **Android and iOS**
+
+---
+
+# CURRENT FEATURE DESIGN
+
+The alarm system contains **two sound modes**.
+
+### Mode 1 — Standard Alarm
+
+When this option is selected:
+
+• A normal alarm sound should play
+• The sound should loop continuously
+• The sound should continue until the user completes the wake-up task
+
+---
+
+### Mode 2 — Speak Title
+
+When this option is selected:
+
+• The alarm should **not play the standard sound**
+• Instead the app should **speak the alarm title repeatedly**
+
+Example:
+
+Alarm Title:
+
+"Wake up for morning workout"
+
+When alarm triggers the phone should say:
+
+"Wake up for morning workout"
+"Wake up for morning workout"
+"Wake up for morning workout"
+
+The title must repeat in a **loop** until the user completes the wake-up task.
+
+---
+
+# CURRENT BUG
+
+Currently the app **always plays the standard alarm sound** even if:
+
+"Speak Title" is selected.
+
+So the alarm mode selection is being ignored.
+
+The alarm trigger system must correctly respect the selected alarm mode.
+
+---
+
+# REQUIRED BEHAVIOR
+
+When the alarm fires, the system must check the stored alarm configuration.
+
+Example:
+
+alarm = {
+id,
+time,
+title,
+soundMode
+}
+
+Where soundMode can be:
+
+"standard"
+
+or
+
+"speak_title"
+
+---
+
+# ALARM TRIGGER LOGIC
+
+When the alarm triggers:
+
+IF soundMode === "standard"
+
+→ play the normal alarm sound in a loop.
+
+IF soundMode === "speak_title"
+
+→ start text-to-speech loop speaking the alarm title.
+
+---
+
+# STANDARD ALARM IMPLEMENTATION
+
+Use the existing sound playback system.
+
+Requirements:
+
+• sound must loop
+• sound must be loud and continuous
+• must stop only when task is completed
+
+Ensure sound stops safely when:
+
+• alarm task is completed
+• screen unmounts
+• user stops alarm
+
+---
+
+# SPEAK TITLE IMPLEMENTATION
+
+Use:
+
+expo-speech
+
+Implementation requirements:
+
+• speak the alarm title
+• when speech finishes → repeat automatically
+• continue looping until alarm task is completed
+
+Example safe pattern:
+
+Speech.speak(title, {
+onDone: repeatSpeech,
+onStopped: stopLoop
+})
+
+Where repeatSpeech triggers the next speak call.
+
+---
+
+# IMPORTANT SAFETY RULES
+
+Prevent these problems:
+
+• multiple speech loops running simultaneously
+• infinite recursion causing crash
+• memory leaks
+• speech continuing after alarm ends
+
+When alarm stops:
+
+Speech.stop()
+
+must be called.
+
+---
+
+# EDGE CASE HANDLING
+
+Handle these situations safely.
+
+If alarm title is empty:
+
+→ fallback to standard alarm sound.
+
+If soundMode is missing:
+
+→ default to standard alarm.
+
+Ensure speech cannot start if title is null.
+
+---
+
+# STORAGE REQUIREMENT
+
+Ensure alarm objects store the selected mode.
+
+Example:
+
+alarmSoundMode
+
+Values allowed:
+
+"standard"
+"speak_title"
+
+When alarm is created, this value must be saved.
+
+When alarm triggers, the same value must be used.
+
+---
+
+# CRITICAL DEBUG STEP
+
+Trace the flow of the alarm configuration.
+
+Verify that:
+
+1. Alarm creation stores soundMode
+2. Alarm scheduling saves soundMode
+3. Alarm trigger reads soundMode correctly
+4. Alarm trigger uses correct sound logic
+
+Fix any missing or incorrect data flow.
+
+---
+
+# STOP CONDITIONS
+
+When the user completes the wake-up task:
+
+• stop alarm sound
+• stop speech
+• clear alarm state
+
+---
+
+# PERFORMANCE REQUIREMENTS
+
+Ensure:
+
+• no unnecessary re-renders
+• no heavy libraries added
+• no multiple timers created
+• no memory leaks
+
+Keep the implementation simple and production safe.
+
+---
+
+# EXPECTED OUTPUT
+
+Provide:
+
+1. Files that must be modified
+2. Updated alarm trigger logic
+3. Correct speech loop implementation
+4. Safe stop logic
+5. Minimal code changes
+
+Do NOT regenerate the entire project.
+
+Focus only on fixing the **alarm sound mode system** in the existing UNSNWOOZE codebase.

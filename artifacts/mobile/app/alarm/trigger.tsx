@@ -50,6 +50,8 @@ export default function AlarmTriggerScreen() {
   const speechPauseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Stable reference to the recursive speak function, built once on mount.
   const speakLoopRef = useRef<(() => void) | null>(null);
+  // Whether this alarm instance resolved to voice mode (captured at mount).
+  const isVoiceModeRef = useRef(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -74,26 +76,33 @@ export default function AlarmTriggerScreen() {
     ).start();
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    startAlarm();
 
-    // Build the speak-loop function. Capture alarm details once at mount so
-    // the closure is stable across the component's lifecycle.
-    if (Platform.OS !== 'web') {
-      const title = (alarm?.title ?? '').trim() || 'Wake Up';
-      // voice mode → repeat title in a loop; standard mode → announce once
-      const isVoice = alarm?.soundType === 'voice';
+    // Resolve mode once at mount. Voice mode requires a non-empty title —
+    // if title is absent we fall back to the standard beep so the alarm never
+    // silently fails.
+    const rawTitle = (alarm?.title ?? '').trim();
+    const useVoice = alarm?.soundType === 'voice' && rawTitle.length > 0;
+    isVoiceModeRef.current = useVoice;
+
+    if (!useVoice) {
+      // Standard mode: looping beep. Voice mode plays no system sound.
+      startAlarm();
+    }
+
+    if (Platform.OS !== 'web' && useVoice) {
+      // Voice mode: speak "Title. Wake up." on a 2.5 s loop.
+      const spokenText = `${rawTitle}. Wake up.`;
 
       const doSpeak = () => {
         if (speechStoppedRef.current) return;
         try {
-          Speech.speak(title, {
+          Speech.speak(spokenText, {
             language: 'en',
             pitch: 1.0,
-            rate: 0.9,
+            rate: 0.85,
             onDone: () => {
-              // Loop again after 2.5 s gap — both modes loop until task done
               if (!speechStoppedRef.current) {
-                speechPauseRef.current = setTimeout(doSpeak, isVoice ? 2500 : 8000);
+                speechPauseRef.current = setTimeout(doSpeak, 2500);
               }
             },
             onError: () => {},
@@ -102,11 +111,10 @@ export default function AlarmTriggerScreen() {
       };
       speakLoopRef.current = doSpeak;
 
-      // Let the alarm sound lead by 1.2 s before first announcement.
-      // doSpeak() checks speechStoppedRef internally — no need to force-reset here.
+      // Short lead-in so the user hears the haptic before speech starts.
       const initialDelay = setTimeout(() => {
         speakLoopRef.current?.();
-      }, 1200);
+      }, 500);
 
       return () => {
         clearTimeout(initialDelay);
@@ -127,8 +135,13 @@ export default function AlarmTriggerScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSnoozed(true);
     setSnoozeUsed(true);
-    stopAlarm();
-    stopSpeech(); // silence speech during snooze
+
+    // Silence whichever mode is active
+    if (isVoiceModeRef.current) {
+      stopSpeech();
+    } else {
+      stopAlarm();
+    }
 
     let remaining = SNOOZE_SECONDS;
     setSnoozeCountdown(remaining);
@@ -141,11 +154,15 @@ export default function AlarmTriggerScreen() {
         snoozeTimerRef.current = null;
         setSnoozed(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        startAlarm();
-        // Restart speech loop after snooze
-        if (Platform.OS !== 'web') {
-          speechStoppedRef.current = false;
-          setTimeout(() => speakLoopRef.current?.(), 1200);
+
+        // Restart whichever mode was active before snooze
+        if (isVoiceModeRef.current) {
+          if (Platform.OS !== 'web') {
+            speechStoppedRef.current = false;
+            setTimeout(() => speakLoopRef.current?.(), 500);
+          }
+        } else {
+          startAlarm();
         }
       }
     }, 1000);
