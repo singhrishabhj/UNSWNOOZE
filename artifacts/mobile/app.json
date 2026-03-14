@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "UNSNWOOZE",
-    "slug": "mobile",
+    "slug": "unsnwooze",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "unsnwooze",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,17 +15,22 @@
     },
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.unsnwooze.app",
       "infoPlist": {
         "NSCameraUsageDescription": "UNSNWOOZE uses the camera for face verification and toothpaste challenge wake-up tasks.",
-        "NSUserNotificationsUsageDescription": "UNSNWOOZE uses notifications to trigger your alarms."
+        "NSUserNotificationsUsageDescription": "UNSNWOOZE needs notification permission to trigger your alarms."
       }
     },
     "android": {
+      "package": "com.unsnwooze.app",
+      "versionCode": 1,
       "permissions": [
         "CAMERA",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "USE_EXACT_ALARM",
+        "SCHEDULE_EXACT_ALARM"
       ]
     },
     "web": {
@@ -46,7 +51,16 @@
         }
       ],
       "expo-image-picker",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF6B00",
+          "defaultChannel": "alarms",
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

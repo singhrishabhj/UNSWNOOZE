@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import React from 'react';
 import {
   Platform,
@@ -103,6 +104,34 @@ export default function SettingsScreen() {
 
       <View style={[styles.card, { backgroundColor: cardBg, borderColor: colors.border }]}>
         <Text style={[styles.cardTitle, { color: colors.textSecondary, fontFamily: fonts.semiBold }]}>
+          LEGAL &amp; SUPPORT
+        </Text>
+        {[
+          { label: 'About UNSNWOOZE', route: '/settings/about', icon: 'info' },
+          { label: 'Privacy Policy', route: '/settings/privacy', icon: 'shield' },
+          { label: 'Terms of Use', route: '/settings/terms', icon: 'file-text' },
+        ].map((item, idx, arr) => (
+          <Pressable
+            key={item.route}
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push(item.route as any);
+            }}
+            style={[styles.listItem, idx === arr.length - 1 && { borderBottomWidth: 0 }]}
+          >
+            <View style={styles.listItemLeft}>
+              <Feather name={item.icon as any} size={16} color={Colors.primary} style={{ marginRight: 10 }} />
+              <Text style={[styles.listItemText, { color: isDark ? '#fff' : '#111', fontFamily: fonts.medium }]}>
+                {item.label}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.textSecondary} />
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.textSecondary, fontFamily: fonts.semiBold }]}>
           {t.about}
         </Text>
         <View style={styles.listItem}>
@@ -177,6 +206,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
+  },
+  listItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   listItemText: {
     fontSize: 15,

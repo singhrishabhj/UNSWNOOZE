@@ -24,6 +24,7 @@ import { AppProvider, useApp } from "@/context/AppContext";
 import { useAlarmScheduler } from "@/hooks/useAlarmScheduler";
 import {
   requestNotificationPermission,
+  setupAndroidNotificationChannel,
   syncAlarmNotifications,
 } from "@/services/notificationService";
 
@@ -94,6 +95,9 @@ function RootLayoutNav() {
       <Stack.Screen name="alarm/task" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       <Stack.Screen name="alarm/complete" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       <Stack.Screen name="alarm/failure" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+      <Stack.Screen name="settings/about" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="settings/privacy" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="settings/terms" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }
@@ -110,9 +114,10 @@ export default function RootLayout() {
     NotoSansDevanagari_700Bold,
   });
 
-  // Request notification permission once on launch (native only)
+  // Request notification permission and set up Android alarm channel once on launch
   useEffect(() => {
     if (Platform.OS !== 'web') {
+      setupAndroidNotificationChannel();
       requestNotificationPermission();
     }
   }, []);

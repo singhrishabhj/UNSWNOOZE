@@ -17,6 +17,26 @@ import { Platform } from 'react-native';
 import { Alarm } from '@/context/AppContext';
 
 const NOTIF_IDS_KEY = '@unsnwooze_notif_ids';
+const ALARM_CHANNEL_ID = 'alarms';
+
+// ─── Android channel setup ────────────────────────────────────────────────────
+// Call once on app start to ensure the high-priority alarm channel exists.
+export async function setupAndroidNotificationChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    await Notifications.setNotificationChannelAsync(ALARM_CHANNEL_ID, {
+      name: 'Alarms',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF6B00',
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: true,
+      sound: 'default',
+    });
+  } catch (e) {
+    console.warn('[notifications] Failed to create Android alarm channel:', e);
+  }
+}
 
 // ─── Persistence helpers ──────────────────────────────────────────────────────
 
@@ -76,8 +96,9 @@ export async function syncAlarmNotifications(alarms: Alarm[]): Promise<void> {
       const content: Notifications.NotificationContentInput = {
         title: 'UNSNWOOZE — Time to Wake Up!',
         body,
-        sound: true,
+        sound: 'default',
         data: { alarmId: alarm.id },
+        priority: Notifications.AndroidNotificationPriority.MAX,
       };
 
       if (alarm.repeatDays.length > 0) {
