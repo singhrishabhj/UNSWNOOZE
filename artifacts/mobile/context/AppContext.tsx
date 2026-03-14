@@ -1,9 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { storageService } from '@/services/storage';
 
 export type WakeTask = 'face' | 'toothpaste';
 export type SoundType = 'standard' | 'voice';
 export type RepeatDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export type DayOutcome = 'success' | 'snoozed' | 'missed' | 'none';
+
+export interface DayRecord {
+  date: string; // 'YYYY-MM-DD'
+  outcome: DayOutcome;
+}
 
 export interface Alarm {
   id: string;
@@ -37,6 +43,7 @@ export interface AppData {
   onboardingComplete: boolean;
   theme: 'light' | 'dark' | 'system';
   language: 'en' | 'hi';
+  weeklyHistory: DayRecord[];
 }
 
 const ACHIEVEMENTS: Achievement[] = [
@@ -58,7 +65,33 @@ const DEFAULT_DATA: AppData = {
   onboardingComplete: false,
   theme: 'system',
   language: 'en',
+  weeklyHistory: [],
 };
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Insert or update today's outcome in the weekly history.
+ * Never downgrades an existing 'success' outcome.
+ */
+function upsertDayOutcome(history: DayRecord[], outcome: DayOutcome): DayRecord[] {
+  const today = todayStr();
+  const idx = history.findIndex(r => r.date === today);
+  if (idx >= 0) {
+    if (history[idx].outcome === 'success') return history; // don't downgrade
+    const updated = [...history];
+    updated[idx] = { date: today, outcome };
+    return updated.slice(-7);
+  }
+  return [...history, { date: today, outcome }].slice(-7);
+}
+
+// ─── Context types ────────────────────────────────────────────────────────────
 
 interface AppContextType {
   data: AppData;
@@ -77,7 +110,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = '@unsnwooze_data';
+// ─── Provider ────────────────────────────────────────────────────────────────
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(DEFAULT_DATA);
@@ -88,28 +121,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadData = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as AppData;
-        // Migrate old saves that lack new fields
-        if (parsed.totalWakeUps === undefined) parsed.totalWakeUps = 0;
-        if (parsed.totalSnoozes === undefined) parsed.totalSnoozes = 0;
-        if (parsed.disciplineScore === undefined) parsed.disciplineScore = Math.min(100, parsed.currentStreak * 5);
-        setData(parsed);
-        updateAchievements(parsed.currentStreak, parsed.totalWakeUps);
-      }
-    } catch (e) {
-      console.error('Failed to load data:', e);
+    const stored = await storageService.load<AppData>(DEFAULT_DATA);
+    // Forward-compatible field migrations
+    if (stored.totalWakeUps === undefined) stored.totalWakeUps = 0;
+    if (stored.totalSnoozes === undefined) stored.totalSnoozes = 0;
+    if (stored.weeklyHistory === undefined) stored.weeklyHistory = [];
+    if (stored.disciplineScore === undefined) {
+      stored.disciplineScore = Math.min(100, stored.currentStreak * 5);
     }
-  };
-
-  const saveData = async (newData: AppData) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-    } catch (e) {
-      console.error('Failed to save data:', e);
-    }
+    setData(stored);
+    updateAchievements(stored.currentStreak, stored.totalWakeUps);
   };
 
   const updateAchievements = (streak: number, wakeUps: number) => {
@@ -124,7 +145,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const update = useCallback((updater: (prev: AppData) => AppData) => {
     setData(prev => {
       const next = updater(prev);
-      saveData(next);
+      storageService.save(next);
       updateAchievements(next.currentStreak, next.totalWakeUps);
       return next;
     });
@@ -173,12 +194,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         totalWakeUps: prev.totalWakeUps + 1,
         disciplineScore: Math.min(100, prev.disciplineScore + 5),
         lastWakeDate: today,
+        weeklyHistory: upsertDayOutcome(prev.weeklyHistory, 'success'),
       };
     });
   }, [update]);
 
   const recordSnooze = useCallback(() => {
-    update(prev => ({ ...prev, totalSnoozes: prev.totalSnoozes + 1 }));
+    update(prev => ({
+      ...prev,
+      totalSnoozes: prev.totalSnoozes + 1,
+      weeklyHistory: upsertDayOutcome(prev.weeklyHistory, 'snoozed'),
+    }));
   }, [update]);
 
   const missAlarm = useCallback(() => {
@@ -186,6 +212,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       currentStreak: 0,
       disciplineScore: Math.max(0, prev.disciplineScore - 5),
+      weeklyHistory: upsertDayOutcome(prev.weeklyHistory, 'missed'),
     }));
   }, [update]);
 

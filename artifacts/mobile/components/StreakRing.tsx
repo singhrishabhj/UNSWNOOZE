@@ -12,7 +12,7 @@ interface StreakRingProps {
   targetStreak?: number;
 }
 
-export function StreakRing({ currentStreak, bestStreak, targetStreak = 30 }: StreakRingProps) {
+export const StreakRing = React.memo(function StreakRing({ currentStreak, bestStreak, targetStreak = 30 }: StreakRingProps) {
   const { isDark, colors } = useTheme();
   const animValue = useRef(new Animated.Value(0)).current;
 
@@ -88,7 +88,7 @@ export function StreakRing({ currentStreak, bestStreak, targetStreak = 30 }: Str
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

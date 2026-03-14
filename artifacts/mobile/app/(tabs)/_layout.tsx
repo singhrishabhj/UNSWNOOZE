@@ -18,6 +18,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>{t.home}</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="streak">
+        <Icon sf={{ default: "chart.line.uptrend.xyaxis", selected: "chart.line.uptrend.xyaxis" }} />
+        <Label>{t.streak}</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
         <Label>{t.settings}</Label>
@@ -71,6 +75,18 @@ function ClassicTabLayout() {
               <SymbolView name="house.fill" tintColor={color} size={24} />
             ) : (
               <Feather name="home" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="streak"
+        options={{
+          title: t.streak,
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={24} />
+            ) : (
+              <Feather name="trending-up" size={22} color={color} />
             ),
         }}
       />

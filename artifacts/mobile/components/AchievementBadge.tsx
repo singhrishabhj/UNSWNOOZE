@@ -9,7 +9,7 @@ interface AchievementBadgeProps {
   achievement: Achievement;
 }
 
-export function AchievementBadge({ achievement }: AchievementBadgeProps) {
+export const AchievementBadge = React.memo(function AchievementBadge({ achievement }: AchievementBadgeProps) {
   const { isDark, colors } = useTheme();
 
   const iconName = achievement.icon as any;
@@ -38,7 +38,7 @@ export function AchievementBadge({ achievement }: AchievementBadgeProps) {
       <Text style={[styles.desc, { color: colors.textMuted }]}>{achievement.description}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   badge: {

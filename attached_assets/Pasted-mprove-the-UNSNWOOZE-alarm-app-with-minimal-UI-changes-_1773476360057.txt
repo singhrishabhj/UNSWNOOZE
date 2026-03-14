@@ -1,0 +1,158 @@
+mprove the UNSNWOOZE alarm app with minimal UI changes and better code structure.
+Do not redesign the existing home screen layout. Only add improvements where necessary.
+The goal is to:
+• keep the UI mostly the same
+• add missing features like a proper streak page
+• reduce code complexity
+• reduce server and runtime cost
+• ensure the project runs easily when downloaded locally
+The project must run properly on Expo for both Android and iOS.
+1. Do NOT Redesign Home Screen
+Keep the existing home screen layout exactly as it is:
+• live clock
+• alarm list
+• add alarm button
+• bottom tab navigation
+Only allow small refinements like:
+• smoother animations
+• minor spacing improvements
+• better alarm card component reuse
+Do not move or redesign the layout.
+2. Add a Dedicated Streak Page
+Create a separate Streak screen accessible from the bottom tab bar.
+This screen should include:
+Current streak
+Best streak
+Total successful wake-ups
+Milestone badges:
+3 days
+7 days
+10 days
+30 days
+Add a simple progress bar to next milestone.
+Example:
+Current Streak: 5 days
+Next milestone: 7 days
+Progress bar showing 5 / 7.
+Keep UI simple using reusable components.
+3. Add Weekly Wake-Up Tracker
+On the streak page add a simple 7-day tracker.
+Each day shows:
+✅ success
+⚠️ snoozed
+❌ missed
+Do not build complex charts.
+Just use a simple row of 7 circles.
+4. Improve Code Structure (Very Important)
+Refactor the codebase for better maintainability.
+Create folders:
+/components
+/screens
+/hooks
+/services
+/utils
+Move reusable UI into components.
+Example:
+AlarmCard
+StreakCard
+ProgressBar
+ChallengeModal
+Avoid duplicating code.
+5. Reduce Replit Server Usage
+Optimize the app to avoid unnecessary background processes.
+Rules:
+Do not use polling loops.
+Avoid continuous timers except for the live clock.
+Use:
+setInterval only for the clock.
+Use AsyncStorage efficiently with batching.
+Avoid unnecessary re-renders using:
+React.memo
+useCallback
+useMemo
+Ensure the app works offline without any backend server.
+6. Fix Camera Implementation
+Currently the camera sometimes opens the system camera app instead of inside the app.
+Fix this using expo-camera properly.
+Requirements:
+Use the front camera for face scan challenge.
+Use the rear camera for toothpaste challenge.
+Camera must open inside the app modal screen.
+Add proper permission handling:
+Request camera permission on first use.
+If denied show:
+"Camera permission is required for wake-up challenges."
+Include fallback option:
+Switch challenge to "None".
+Ensure camera works on:
+Android
+iOS
+7. Improve Permissions Handling
+Add proper permission flow for:
+Camera
+Notifications
+Use:
+expo-notifications
+expo-camera
+Handle all permission states:
+granted
+denied
+undetermined
+8. Improve Alarm Scheduling
+Ensure alarms work reliably using:
+expo-notifications
+Features:
+scheduled alarms
+repeating alarms
+snooze functionality
+Avoid creating duplicate scheduled notifications.
+9. Optimize Data Storage
+All app data must stay local using:
+AsyncStorage
+Data stored:
+alarms
+streak data
+settings
+onboarding state
+Create a storage service helper to reduce repeated AsyncStorage code.
+Example:
+storageService.ts
+10. Improve Project Structure for Easy Download
+Ensure the project runs easily when downloaded.
+Requirements:
+Working package.json
+Clear dependencies
+Expo compatible setup
+Running commands should be:
+npm install
+npx expo start
+Avoid Replit-specific configurations.
+11. Clean Code Requirements
+Use:
+TypeScript types where possible
+Add comments for complex logic.
+Avoid large files.
+Each screen should stay under 300 lines.
+12. Maintain Existing Features
+Do NOT remove these features:
+alarm system
+wake-up challenges
+snooze rules
+voice alarm
+Hindi / English language system
+dark mode / light mode
+Ensure they continue working.
+13. Performance Optimization
+Reduce bundle size.
+Remove unused libraries.
+Lazy load non-critical screens.
+Example:
+Streak screen
+Settings screen
+Final Goal
+The project should:
+• run smoothly on Expo
+• work on Android and iOS
+• have optimized clean code
+• reduce Replit compute usage
+• be easy to download and run locally

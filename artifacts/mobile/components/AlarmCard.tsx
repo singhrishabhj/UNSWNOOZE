@@ -24,7 +24,7 @@ interface AlarmCardProps {
   onDelete: () => void;
 }
 
-export function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps) {
+export const AlarmCard = React.memo(function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps) {
   const { isDark, colors } = useTheme();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -172,7 +172,7 @@ export function AlarmCard({ alarm, onToggle, onPress, onDelete }: AlarmCardProps
       </View>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

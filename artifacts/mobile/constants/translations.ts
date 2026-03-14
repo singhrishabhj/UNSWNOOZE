@@ -30,6 +30,7 @@ export const translations = {
 
     // Tabs
     home: 'Home',
+    streak: 'Streak',
     settings: 'Settings',
 
     // Success screen
@@ -37,7 +38,6 @@ export const translations = {
     streakDaysContinue: (n: number) => `${n} day streak — keep going.`,
     firstDayDown: 'First day down. Build on it.',
     greatStart: 'Great start! Keep going.',
-    streak: 'Streak',
     scoreDisplay: (score: number) => `+5 → ${score}`,
 
     // Failure screen
@@ -75,6 +75,17 @@ export const translations = {
     english: 'English',
     hindi: 'Hindi',
     wakeUpAction: 'Wake up. Take action.',
+
+    // Streak page
+    currentStreakLabel: 'Current',
+    bestStreakLabel: 'Best',
+    totalWakeUps: 'Total Wake-Ups',
+    milestones: 'Milestones',
+    nextMilestoneLabel: 'Next milestone',
+    daysMore: (n: number) => `${n} more to go`,
+    weeklyActivity: 'This Week',
+    dayNames: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
+    noHistoryYet: 'Complete your first alarm to start tracking.',
   },
 
   hi: {
@@ -106,6 +117,7 @@ export const translations = {
 
     // Tabs
     home: 'होम',
+    streak: 'स्ट्रीक',
     settings: 'सेटिंग्स',
 
     // Success screen
@@ -113,7 +125,6 @@ export const translations = {
     streakDaysContinue: (n: number) => `${n} दिन की लकीर — जारी रखो।`,
     firstDayDown: 'पहला दिन पूरा। आगे बढ़ो।',
     greatStart: 'शानदार शुरुआत! जारी रखो।',
-    streak: 'लगातार दिन',
     scoreDisplay: (score: number) => `+5 → ${score}`,
 
     // Failure screen
@@ -151,6 +162,17 @@ export const translations = {
     english: 'अंग्रेज़ी',
     hindi: 'हिंदी',
     wakeUpAction: 'जागो। कुछ करो।',
+
+    // Streak page
+    currentStreakLabel: 'अभी',
+    bestStreakLabel: 'सर्वश्रेष्ठ',
+    totalWakeUps: 'कुल जागरण',
+    milestones: 'मील के पत्थर',
+    nextMilestoneLabel: 'अगला लक्ष्य',
+    daysMore: (n: number) => `${n} और बाकी`,
+    weeklyActivity: 'इस सप्ताह',
+    dayNames: ['र', 'सो', 'मं', 'बु', 'गु', 'शु', 'श'],
+    noHistoryYet: 'ट्रैकिंग शुरू करने के लिए पहला अलार्म पूरा करें।',
   },
 };
 
