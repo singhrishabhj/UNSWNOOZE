@@ -107,7 +107,13 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
+  // isLiquidGlassAvailable() is experimental and can throw on non-iOS platforms.
+  // Wrap defensively so any failure gracefully falls back to the classic layout.
+  let useNative = false;
+  try {
+    useNative = isLiquidGlassAvailable();
+  } catch {}
+  if (useNative) {
     return <NativeTabLayout />;
   }
   return <ClassicTabLayout />;

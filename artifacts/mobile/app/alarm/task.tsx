@@ -82,9 +82,14 @@ export default function WakeTaskScreen() {
   // Request permission then open the in-app rear camera
   const openToothpasteCamera = useCallback(async () => {
     if (!permission?.granted) {
-      const { granted } = await requestPermission();
-      if (!granted) {
-        Alert.alert('Camera Required', 'Please allow camera access to complete this task.');
+      try {
+        const { granted } = await requestPermission();
+        if (!granted) {
+          Alert.alert('Camera Required', 'Please allow camera access to complete this task.');
+          return;
+        }
+      } catch {
+        Alert.alert('Camera Required', 'Could not request camera permission. Please enable it in Settings.');
         return;
       }
     }

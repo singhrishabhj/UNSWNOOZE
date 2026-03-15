@@ -73,14 +73,21 @@ export const FaceLivenessCheck = React.memo(function FaceLivenessCheck({ onVerif
   // Request camera permission on mount
   useEffect(() => {
     if (!permission?.granted) {
-      requestPermission().then(({ granted }) => {
-        if (!granted) {
+      requestPermission()
+        .then(({ granted }) => {
+          if (!granted) {
+            Alert.alert(
+              'Camera Required',
+              'Camera access is needed to verify you are awake. Please grant permission.',
+            );
+          }
+        })
+        .catch(() => {
           Alert.alert(
             'Camera Required',
-            'Camera access is needed to verify you are awake. Please grant permission.',
+            'Could not request camera permission. Please enable it in Settings.',
           );
-        }
-      });
+        });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -29,13 +29,21 @@ function getNextAlarm(alarms: Alarm[]): { alarm: Alarm; nextMs: number } | null 
   const enabled = alarms.filter(a => a.enabled);
   if (!enabled.length) return null;
   const now = Date.now();
-  const candidates = enabled.map(alarm => {
-    const [h, m] = alarm.time.split(':').map(Number);
+  const candidates = enabled.reduce<{ alarm: Alarm; nextMs: number }[]>((acc, alarm) => {
+    const parts = alarm.time?.split(':').map(Number);
+    const h = parts?.[0];
+    const m = parts?.[1];
+    // Skip alarms with malformed time strings to avoid NaN cascading into sort.
+    if (h === undefined || m === undefined || !Number.isFinite(h) || !Number.isFinite(m)) {
+      return acc;
+    }
     const d = new Date();
     d.setHours(h, m, 0, 0);
     if (d.getTime() <= now) d.setDate(d.getDate() + 1);
-    return { alarm, nextMs: d.getTime() };
-  });
+    acc.push({ alarm, nextMs: d.getTime() });
+    return acc;
+  }, []);
+  if (!candidates.length) return null;
   candidates.sort((a, b) => a.nextMs - b.nextMs);
   return candidates[0];
 }

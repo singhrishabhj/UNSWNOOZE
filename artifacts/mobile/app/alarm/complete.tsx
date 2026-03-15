@@ -147,6 +147,8 @@ export default function AlarmCompleteScreen() {
   const ringOpacity2 = useRef(new Animated.Value(0.6)).current;
   const scorePillAnim = useRef(new Animated.Value(0)).current;
   const streakScaleAnim = useRef(new Animated.Value(1)).current;
+  // Ref-stored interval so we can clear it on unmount (avoids setState on unmounted component).
+  const scoreIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Counting state
   const disciplineScore = data.disciplineScore;
@@ -222,10 +224,13 @@ export default function AlarmCompleteScreen() {
       if (scoreDiff > 0) {
         const stepMs = 900 / scoreDiff;
         let cur = prevScore;
-        const id = setInterval(() => {
+        scoreIntervalRef.current = setInterval(() => {
           cur += 1;
           setDisplayScore(cur);
-          if (cur >= disciplineScore) clearInterval(id);
+          if (cur >= disciplineScore) {
+            clearInterval(scoreIntervalRef.current!);
+            scoreIntervalRef.current = null;
+          }
         }, stepMs);
       }
 
@@ -251,7 +256,14 @@ export default function AlarmCompleteScreen() {
     const timer = setTimeout(() => {
       router.replace('/(tabs)');
     }, 3500);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Clean up score counter interval if component unmounts early.
+      if (scoreIntervalRef.current) {
+        clearInterval(scoreIntervalRef.current);
+        scoreIntervalRef.current = null;
+      }
+    };
   }, []);
 
   return (

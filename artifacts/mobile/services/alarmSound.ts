@@ -17,11 +17,17 @@ let _player: ReturnType<typeof createAudioPlayer> | null = null;
 
 async function _startNativeAlarm(): Promise<void> {
   try {
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-    });
+    // setAudioModeAsync is best-effort: if it fails (e.g. unsupported device
+    // option) we still want the player to start, so it gets its own try/catch.
+    try {
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
+      });
+    } catch (modeErr) {
+      console.warn('[alarmSound] setAudioModeAsync failed (non-fatal):', modeErr);
+    }
 
     if (_player) {
       try { _player.release(); } catch {}

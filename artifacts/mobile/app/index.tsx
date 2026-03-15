@@ -7,7 +7,7 @@ import { useApp } from '@/context/AppContext';
 const { width } = Dimensions.get('window');
 
 export default function SplashEntry() {
-  const { data } = useApp();
+  const { data, dataLoaded } = useApp();
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -34,6 +34,12 @@ export default function SplashEntry() {
       ])
     ).start();
 
+    // Only start navigation timer once real stored data is available.
+    // On slow devices, loadData() can take > 2200 ms; without this guard the
+    // first render's DEFAULT_DATA (onboardingComplete: false) would fire a
+    // premature navigation to /onboarding before actual data is known.
+    if (!dataLoaded) return;
+
     const timer = setTimeout(() => {
       if (data.onboardingComplete) {
         router.replace('/(tabs)');
@@ -43,7 +49,7 @@ export default function SplashEntry() {
     }, 2200);
 
     return () => clearTimeout(timer);
-  }, [data.onboardingComplete]);
+  }, [data.onboardingComplete, dataLoaded]);
 
   const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.8] });
   const glowScale = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.3] });

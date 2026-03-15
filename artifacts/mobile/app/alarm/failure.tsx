@@ -26,12 +26,18 @@ export default function AlarmFailureScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const iconScale = useRef(new Animated.Value(0.6)).current;
+  // Guard against React StrictMode double-mount firing missAlarm() twice,
+  // which would reset the streak and drop the score by double the intended amount.
+  const missCalledRef = useRef(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   useEffect(() => {
-    missAlarm();
+    if (!missCalledRef.current) {
+      missCalledRef.current = true;
+      missAlarm();
+    }
     Haptics.notificationAsync(
       willUseFreeze
         ? Haptics.NotificationFeedbackType.Warning

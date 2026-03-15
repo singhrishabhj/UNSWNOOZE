@@ -110,6 +110,8 @@ function upsertDayOutcome(history: DayRecord[], outcome: DayOutcome): DayRecord[
 
 interface AppContextType {
   data: AppData;
+  /** True once loadData() has resolved — consumers can safely read real stored values. */
+  dataLoaded: boolean;
   achievements: Achievement[];
   addAlarm: (alarm: Omit<Alarm, 'id' | 'createdAt'>) => void;
   updateAlarm: (id: string, updates: Partial<Alarm>) => void;
@@ -129,6 +131,7 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(DEFAULT_DATA);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [achievements, setAchievements] = useState<Achievement[]>(ACHIEVEMENTS);
 
   useEffect(() => {
@@ -161,6 +164,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }));
     }
     setData(stored);
+    setDataLoaded(true);
     updateAchievements(stored.currentStreak, stored.totalWakeUps);
   };
 
@@ -283,6 +287,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       data,
+      dataLoaded,
       achievements,
       addAlarm,
       updateAlarm,
