@@ -12,6 +12,7 @@
  *   • Web is a no-op: expo-notifications is native-only.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Alarm } from '@/context/AppContext';
@@ -19,10 +20,18 @@ import { Alarm } from '@/context/AppContext';
 const NOTIF_IDS_KEY = '@unsnwooze_notif_ids';
 const ALARM_CHANNEL_ID = 'alarms';
 
+// expo-notifications removed Android push-notification support from Expo Go
+// in SDK 53.  Scheduling still compiles but throws at runtime.  We detect
+// the Expo Go host environment and downgrade gracefully so the foreground
+// 5-second alarm poller (useAlarmScheduler) keeps working while dev testing.
+// In a development build or production APK this path is never taken.
+const IS_EXPO_GO =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 // ─── Android channel setup ────────────────────────────────────────────────────
 // Call once on app start to ensure the high-priority alarm channel exists.
 export async function setupAndroidNotificationChannel(): Promise<void> {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== 'android' || IS_EXPO_GO) return;
   try {
     await Notifications.setNotificationChannelAsync(ALARM_CHANNEL_ID, {
       name: 'Alarms',
@@ -62,7 +71,7 @@ async function saveIds(ids: string[]): Promise<void> {
  * Returns true if granted.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (Platform.OS === 'web') return false;
+  if (Platform.OS === 'web' || IS_EXPO_GO) return false;
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     if (existing === 'granted') return true;
@@ -78,7 +87,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
  * alarm. Call this any time the alarm list changes.
  */
 export async function syncAlarmNotifications(alarms: Alarm[]): Promise<void> {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || IS_EXPO_GO) return;
   try {
     // Cancel previously managed notifications
     const oldIds = await loadIds();

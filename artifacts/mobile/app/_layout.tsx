@@ -14,7 +14,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -28,22 +28,29 @@ import {
   syncAlarmNotifications,
 } from "@/services/notificationService";
 
+// If fonts don't resolve within this window we render anyway using system fonts.
+// This prevents a permanent blank screen when the device is offline at startup.
+const FONT_TIMEOUT_MS = 5_000;
+
 SplashScreen.preventAutoHideAsync();
 
-// Show notifications even when the app is foregrounded
+// Show notifications even when the app is foregrounded.
+// Wrapped in try/catch so a throw during Expo Go init never crashes the layout.
 if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  });
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  } catch {}
 }
 
-// Inject global web styles once
+// Inject global web focus-ring reset once
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = `
@@ -73,18 +80,24 @@ function NotificationSync() {
 }
 
 function RootLayoutNav() {
-  // Navigate to trigger screen when user taps a scheduled notification
+  // Navigate to trigger screen when user taps a scheduled notification.
+  // Skipped on web (expo-notifications is native-only).
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
-    const sub = Notifications.addNotificationResponseReceivedListener(response => {
-      const alarmId = response.notification.request.content.data?.alarmId as string | undefined;
-      if (alarmId) {
-        router.push({ pathname: '/alarm/trigger', params: { alarmId } });
-      }
-    });
+    let sub: Notifications.EventSubscription | null = null;
+    try {
+      sub = Notifications.addNotificationResponseReceivedListener(response => {
+        const alarmId = response.notification.request.content.data?.alarmId as string | undefined;
+        if (alarmId) {
+          router.push({ pathname: '/alarm/trigger', params: { alarmId } });
+        }
+      });
+    } catch (e) {
+      console.warn('[layout] Failed to add notification listener:', e);
+    }
 
-    return () => sub.remove();
+    return () => { sub?.remove(); };
   }, []);
 
   return (
@@ -116,7 +129,21 @@ export default function RootLayout() {
     NotoSansDevanagari_700Bold,
   });
 
-  // Request notification permission and set up Android alarm channel once on launch
+  // Safety valve: if useFonts never resolves (network down, cache miss, etc.)
+  // we render with system fonts after FONT_TIMEOUT_MS so the user never sees
+  // a permanent blank screen or a stuck splash.
+  const [fontTimedOut, setFontTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setFontTimedOut(true), FONT_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  // We are ready to render as soon as fonts are done (success or error) OR
+  // the timeout fires — whichever comes first.
+  const fontsReady = fontsLoaded || !!fontError || fontTimedOut;
+
+  // Request notification permission and set up Android alarm channel once on launch.
+  // Both calls are already wrapped in try/catch inside the service.
   useEffect(() => {
     if (Platform.OS !== 'web') {
       setupAndroidNotificationChannel();
@@ -124,13 +151,17 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Hide the splash screen as soon as fonts are ready.
+  // .catch() swallows the rare case where hideAsync() throws
+  // (e.g. Expo SDK internal race on first cold-launch).
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+    if (fontsReady) {
+      SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsReady]);
 
-  if (!fontsLoaded && !fontError) return null;
+  // Keep splash visible while waiting — never render null indefinitely.
+  if (!fontsReady) return null;
 
   return (
     <SafeAreaProvider>

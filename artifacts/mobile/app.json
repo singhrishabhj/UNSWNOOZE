@@ -18,19 +18,28 @@
       "bundleIdentifier": "com.unsnwooze.app",
       "infoPlist": {
         "NSCameraUsageDescription": "UNSNWOOZE uses the camera for face verification and toothpaste challenge wake-up tasks.",
-        "NSUserNotificationsUsageDescription": "UNSNWOOZE needs notification permission to trigger your alarms."
+        "NSUserNotificationsUsageDescription": "UNSNWOOZE needs notification permission to trigger your alarms.",
+        "UIBackgroundModes": ["audio", "fetch", "remote-notification"]
       }
     },
     "android": {
       "package": "com.unsnwooze.app",
       "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0F0F0F"
+      },
       "permissions": [
-        "CAMERA",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "POST_NOTIFICATIONS",
-        "USE_EXACT_ALARM",
-        "SCHEDULE_EXACT_ALARM"
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.FOREGROUND_SERVICE"
       ]
     },
     "web": {
@@ -44,6 +53,7 @@
         }
       ],
       "expo-font",
+      "expo-dev-client",
       [
         "expo-camera",
         {

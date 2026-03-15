@@ -1,0 +1,271 @@
+You are a **principal-level React Native, Expo, and Android systems engineer** responsible for building **production-grade mobile architecture**.
+
+I have an **Expo React Native project running inside Replit**. The project runs during development but when I build an APK and install it on an Android device, the app either **shows a blank screen or crashes immediately**.
+
+I also receive errors related to:
+
+• expo-notifications not supported in Expo Go (SDK 53+)
+• initialization errors in `_layout.tsx`
+• APK builds successfully but crashes on launch
+
+Example error:
+
+expo-notifications: Android Push notifications functionality was removed from Expo Go with SDK 53. Use a development build instead.
+
+Problem file:
+
+app/_layout.tsx
+
+```ts
+import * as Notifications from 'expo-notifications';
+```
+
+Your task is to **completely rebuild, stabilize, and production-harden this Expo project so the APK always runs correctly and never shows a blank screen**.
+
+You must design a **fault-tolerant mobile architecture similar to what large production apps use**.
+
+---
+
+SECTION 1 — FULL PROJECT DIAGNOSTICS
+
+Analyze the entire project and detect issues related to:
+
+• Expo SDK version
+• incompatible dependencies
+• expo-router initialization errors
+• expo-notifications configuration
+• SplashScreen deadlocks
+• font loading blocking startup
+• Metro bundler issues
+• Android configuration issues
+• incorrect entry points
+• missing permissions
+• native module conflicts
+
+Automatically fix all detected issues.
+
+---
+
+SECTION 2 — UPGRADE TO A STABLE EXPO STACK
+
+Upgrade the project to the **latest stable Expo SDK** and ensure compatibility with:
+
+• react-native
+• expo-router
+• expo-notifications
+• expo-font
+• expo-splash-screen
+• expo-dev-client
+
+Remove deprecated or incompatible packages.
+
+---
+
+SECTION 3 — USE DEVELOPMENT BUILDS INSTEAD OF EXPO GO
+
+Expo Go has limitations.
+
+Reconfigure the project to use **Expo Development Client**.
+
+The project must run with:
+
+npx expo start --dev-client
+
+and
+
+npx expo run:android
+
+Ensure this works inside Replit and on a physical Android device.
+
+---
+
+SECTION 4 — DESIGN A BULLETPROOF STARTUP SYSTEM
+
+Build a startup architecture that **guarantees the UI always renders**.
+
+Implement:
+
+• Global Error Boundary
+• Safe Initialization Loader
+• Safe Font Loader
+• Safe Splash Screen Handling
+• App Recovery Fallback UI
+
+The app must **never show a blank screen under any condition**.
+
+Even if:
+
+• fonts fail
+• notifications fail
+• async initialization fails
+• router fails
+
+The user must always see a fallback UI.
+
+---
+
+SECTION 5 — REWRITE `_layout.tsx`
+
+Rewrite the Expo Router layout so that:
+
+• it never blocks rendering
+• fonts load safely
+• notifications initialize safely
+• splash screen always hides
+• router mounts even if services fail
+
+No heavy logic should run directly inside `_layout.tsx`.
+
+---
+
+SECTION 6 — CREATE A PRODUCTION-GRADE FILE STRUCTURE
+
+Reorganize the project into a scalable architecture:
+
+app
+_layout.tsx
+index.tsx
+error.tsx
+
+components
+ErrorBoundary.tsx
+SafeAppLoader.tsx
+FallbackScreen.tsx
+
+services
+notifications.ts
+appInitialization.ts
+analytics.ts
+
+hooks
+useSafeFonts.ts
+useAppInitialization.ts
+
+config
+constants.ts
+env.ts
+
+utils
+logger.ts
+errorHandler.ts
+
+This structure ensures:
+
+• initialization is isolated
+• layouts remain lightweight
+• crashes cannot propagate globally
+• UI always renders
+
+---
+
+SECTION 7 — HARDEN APP INITIALIZATION
+
+Create a centralized initialization system that safely loads:
+
+• fonts
+• notifications
+• async storage
+• services
+
+All initialization must be **wrapped in try/catch with fallbacks**.
+
+Nothing should be able to block UI rendering.
+
+---
+
+SECTION 8 — FIX EXPO NOTIFICATIONS
+
+Configure notifications safely:
+
+• install required packages
+• configure Android permissions
+• add notification handler
+• prevent crashes if notifications fail
+
+Notifications must **never break startup**.
+
+---
+
+SECTION 9 — FIX ANDROID CONFIGURATION
+
+Update configuration in:
+
+app.json
+
+Ensure correct Android permissions such as:
+
+POST_NOTIFICATIONS
+INTERNET
+WAKE_LOCK (if alarms used)
+CAMERA (only if needed)
+
+Ensure compatibility with native builds.
+
+---
+
+SECTION 10 — CONFIGURE STABLE ANDROID BUILDS
+
+Add support for **EAS Build**.
+
+Generate:
+
+eas.json
+
+Ensure the project builds successfully using:
+
+npx expo prebuild
+
+npx expo run:android
+
+and
+
+eas build -p android --profile preview
+
+The generated APK must **run correctly outside Expo Go**.
+
+---
+
+SECTION 11 — PREVENT ALL BLANK SCREEN SCENARIOS
+
+Guarantee the following problems cannot occur:
+
+• SplashScreen never hiding
+• fonts blocking UI rendering
+• notification initialization crash
+• router mount failure
+• async initialization deadlock
+• dependency resolution errors
+
+Add fallback UI and error boundaries everywhere needed.
+
+---
+
+SECTION 12 — FINAL REQUIREMENTS
+
+The finished app must:
+
+• never show a blank screen
+• never crash on startup
+• always render fallback UI
+• log errors safely
+• recover from service failures
+
+Even if initialization fails.
+
+---
+
+FINAL OUTPUT
+
+Return:
+
+1. Fixed `_layout.tsx`
+2. Updated package.json
+3. Updated app.json
+4. eas.json
+5. Full corrected file structure
+6. All new helper files created
+7. Commands to run development builds
+8. Commands to generate APK
+9. Explanation of all fixes
+
+The final result must be a **stable Expo project that builds a working Android APK and runs correctly on a real device outside Expo Go without crashes or blank screens**.
