@@ -76,7 +76,8 @@
           "defaultChannel": "alarms",
           "sounds": []
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
