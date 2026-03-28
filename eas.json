@@ -1,0 +1,39 @@
+{
+  "cli": {
+    "version": ">= 18.3.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "18.18.0",
+      "pnpm": "8.15.0",
+      "env": {
+        "PNPM_FLAGS": "--no-frozen-lockfile"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "node": "18.18.0",
+      "pnpm": "8.15.0",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "PNPM_FLAGS": "--no-frozen-lockfile"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "node": "18.18.0",
+      "pnpm": "8.15.0",
+      "env": {
+        "PNPM_FLAGS": "--no-frozen-lockfile"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
