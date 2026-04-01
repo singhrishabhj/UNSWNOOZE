@@ -32,7 +32,7 @@ export default function AlarmTriggerScreen() {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const { alarmId } = useLocalSearchParams<{ alarmId: string }>();
-  const { data, recordSnooze } = useApp();
+  const { data, recordSnooze, missAlarm } = useApp();
 
   const alarm = data.alarms.find(a => a.id === alarmId);
 
@@ -74,6 +74,10 @@ export default function AlarmTriggerScreen() {
   const voiceLeadInRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Timer ID for the data-not-ready retry loop.
   const soundRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Becomes true after 3 s on-screen — prevents StrictMode double-mount from
+  // firing missAlarm() on the first synthetic unmount in development.
+  const wasShownRef = useRef(false);
+  const wasShownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -196,6 +200,13 @@ export default function AlarmTriggerScreen() {
 
     startSound();
 
+    // Mark the screen as "really shown" after 3 s so the cleanup can safely
+    // call missAlarm(). This guard prevents React StrictMode's synthetic
+    // double-mount from registering a false miss on first dev render.
+    wasShownTimerRef.current = setTimeout(() => {
+      wasShownRef.current = true;
+    }, 3000);
+
     // ── Unified cleanup ────────────────────────────────────────────────────────
     // Runs on unmount (or StrictMode double-mount dev re-run).
     return () => {
@@ -209,6 +220,11 @@ export default function AlarmTriggerScreen() {
         clearTimeout(voiceLeadInRef.current);
         voiceLeadInRef.current = null;
       }
+      // Cancel the "was shown" timer.
+      if (wasShownTimerRef.current) {
+        clearTimeout(wasShownTimerRef.current);
+        wasShownTimerRef.current = null;
+      }
       // Stop speech (voice mode). Safe to call in standard mode — it's a no-op.
       stopSpeech();
       // Stop alarm beep only when NOT intentionally navigating to the task
@@ -217,6 +233,13 @@ export default function AlarmTriggerScreen() {
       // wake-up task — task.tsx calls stopAlarm() on success or give-up.
       if (!navigatingToTaskRef.current) {
         stopAlarm();
+        // If the user dismissed this screen without completing the task
+        // (e.g. Android back button), record today as missed so the streak
+        // tracker shows the X icon. Guard with wasShownRef to avoid
+        // StrictMode double-mount false positives in development.
+        if (wasShownRef.current) {
+          missAlarm();
+        }
       }
       if (snoozeTimerRef.current) clearInterval(snoozeTimerRef.current);
     };
