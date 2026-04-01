@@ -1,0 +1,210 @@
+You are a senior Android + React Native engineer.
+
+My alarm app is partially implemented but BROKEN:
+
+* Native module sometimes undefined
+* Alarm not triggering correctly
+* Sound not playing
+* No full-screen alarm on lock screen
+
+You must FIX EVERYTHING and deliver a FINAL WORKING implementation.
+
+---
+
+# 🎯 FINAL REQUIRED BEHAVIOR
+
+When alarm time is reached:
+
+1. Works even if:
+
+   * App is killed
+   * App is in background
+   * Phone is locked
+
+2. MUST:
+
+   * Wake screen
+   * Open FULL SCREEN AlarmActivity
+   * Play LOUD alarm sound (MediaPlayer)
+   * Speak alarm title (TextToSpeech)
+
+3. NO notification click required
+
+---
+
+# 🔥 ROOT RULE
+
+❌ DO NOT USE expo-notifications for triggering
+✅ ONLY use native Android AlarmManager
+
+---
+
+# 🧩 IMPLEMENTATION (FIX OR REWRITE CLEANLY)
+
+---
+
+## 1. AlarmModule.kt (FINAL)
+
+* Must expose:
+  scheduleAlarm(title: string, timestamp: number)
+* Use AlarmManager.setExactAndAllowWhileIdle
+* Use PendingIntent → AlarmReceiver
+
+---
+
+## 2. AlarmReceiver.kt (CRITICAL)
+
+* Receives alarm broadcast
+* Starts AlarmActivity using Intent
+* Pass title via intent
+
+---
+
+## 3. AlarmActivity.kt (MOST IMPORTANT)
+
+CREATE THIS FILE if missing.
+
+Must:
+
+### FULL SCREEN + LOCK SCREEN
+
+Use:
+
+* window.addFlags(
+  FLAG_SHOW_WHEN_LOCKED |
+  FLAG_TURN_SCREEN_ON |
+  FLAG_KEEP_SCREEN_ON
+  )
+
+OR modern equivalents:
+
+* setShowWhenLocked(true)
+* setTurnScreenOn(true)
+
+---
+
+### SOUND (FIX THIS PROPERLY)
+
+Use MediaPlayer:
+
+* Load from:
+  res/raw/alarm_beep.wav (ensure file exists)
+* Start immediately in onCreate()
+
+Example:
+mediaPlayer = MediaPlayer.create(this, R.raw.alarm_beep)
+mediaPlayer.isLooping = true
+mediaPlayer.start()
+
+---
+
+### TTS
+
+* Initialize TextToSpeech
+* Speak alarm title immediately
+
+---
+
+## 4. ADD SOUND FILE (IMPORTANT)
+
+If missing:
+
+Create:
+
+android/app/src/main/res/raw/alarm_beep.wav
+
+If folder not exists → create it
+
+---
+
+## 5. AndroidManifest.xml
+
+Ensure:
+
+### Receiver:
+
+<receiver android:name=".AlarmReceiver" android:exported="true"/>
+
+### Activity:
+
+<activity
+android:name=".AlarmActivity"
+android:showWhenLocked="true"
+android:turnScreenOn="true"
+android:exported="true"
+android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+---
+
+## 6. MainApplication.kt
+
+Ensure:
+
+add(AlarmPackage())
+
+and import exists
+
+---
+
+## 7. JS SIDE
+
+Replace ALL scheduling logic with:
+
+NativeModules.AlarmModule.scheduleAlarm(title, timestamp)
+
+DO NOT use expo notification scheduling
+
+---
+
+## 8. FIX CURRENT BUGS
+
+Specifically fix:
+
+* NativeModules.AlarmModule undefined
+* scheduleAlarm not found
+* sound not playing
+* activity not opening
+
+---
+
+## ✅ FINAL OUTPUT
+
+Provide ONLY:
+
+1. Final working code:
+
+   * AlarmModule.kt
+   * AlarmReceiver.kt
+   * AlarmActivity.kt
+   * AlarmPackage.kt
+   * AndroidManifest.xml changes
+
+2. Confirmation checklist:
+
+✔ Alarm triggers in killed state
+✔ Lock screen opens
+✔ Full screen visible
+✔ Sound plays LOUD
+✔ TTS speaks title
+✔ No notification click needed
+
+---
+
+## 🚨 IMPORTANT
+
+* Do NOT give explanation
+* Do NOT suggest — FIX directly
+* Ensure production-ready behavior
+
+---
+
+## FINAL GOAL
+
+App behaves EXACTLY like Android Clock alarm:
+
+* Full screen
+* Loud sound
+* Voice
+* Works always
+
+NO PARTIAL FIX.

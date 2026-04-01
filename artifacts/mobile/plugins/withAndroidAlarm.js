@@ -1,33 +1,31 @@
 /**
  * withAndroidAlarm.js — Expo Config Plugin
  *
- * Generates four Kotlin source files and patches AndroidManifest.xml +
- * MainApplication.kt during `expo prebuild` (run automatically by EAS Build).
+ * Runs automatically during `expo prebuild` (EAS Build).
  *
- * Files generated:
- *   AlarmReceiver.kt   — BroadcastReceiver woken by AlarmManager
- *   AlarmActivity.kt   — Full-screen lock-screen bridge activity
- *                        Plays system alarm sound + TTS immediately on wake,
- *                        then opens the React Native trigger screen via deep link.
- *   AlarmModule.kt     — ReactNative native module
- *                        (scheduleAlarm / cancelAlarm / stopNativeAlarm)
- *   AlarmPackage.kt    — Registers AlarmModule with the React bridge
- *
- * AndroidManifest.xml changes:
- *   SCHEDULE_EXACT_ALARM, USE_FULL_SCREEN_INTENT, RECEIVE_BOOT_COMPLETED permissions
- *   <receiver android:name=".AlarmReceiver" />
- *   <activity android:name=".AlarmActivity" showWhenLocked turnScreenOn … />
- *
- * MainApplication.kt changes:
- *   import com.unsnwooze.app.AlarmPackage
- *   packages.add(AlarmPackage())
+ * What this does:
+ *   1. Copies assets/sounds/alarm-beep.wav → android/app/src/main/res/raw/alarm_beep.wav
+ *      so AlarmActivity can reference it as R.raw.alarm_beep (guaranteed sound,
+ *      no dependence on device alarm ringtone settings).
+ *   2. Writes four Kotlin source files:
+ *        AlarmReceiver.kt  — BroadcastReceiver triggered by AlarmManager
+ *        AlarmActivity.kt  — Lock-screen full-screen activity:
+ *                             plays R.raw.alarm_beep immediately + TTS
+ *        AlarmModule.kt    — Native module: scheduleAlarm / cancelAlarm / stopNativeAlarm
+ *        AlarmPackage.kt   — Registers AlarmModule with the React bridge
+ *   3. Patches AndroidManifest.xml:
+ *        Permissions: SCHEDULE_EXACT_ALARM, USE_FULL_SCREEN_INTENT, WAKE_LOCK, RECEIVE_BOOT_COMPLETED
+ *        <receiver> for AlarmReceiver (exported=true — needed for AlarmManager on OEM ROMs)
+ *        <activity> for AlarmActivity with showWhenLocked / turnScreenOn
+ *   4. Patches MainApplication.kt:
+ *        adds import + packages.add(AlarmPackage())
  */
 
 const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
 const path = require('path');
-const fs = require('fs');
+const fs   = require('fs');
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Path helpers ─────────────────────────────────────────────────────────────
 
 function getPkgPath(projectRoot) {
   return path.join(
@@ -37,7 +35,69 @@ function getPkgPath(projectRoot) {
   );
 }
 
-// ─── Kotlin source templates ──────────────────────────────────────────────────
+function getResRawPath(projectRoot) {
+  return path.join(
+    projectRoot,
+    'android', 'app', 'src', 'main', 'res', 'raw',
+  );
+}
+
+// ─── Step 0 — Copy alarm-beep.wav into res/raw/ ───────────────────────────────
+// AlarmActivity uses MediaPlayer.create(this, R.raw.alarm_beep) for guaranteed,
+// device-independent alarm sound that works even when no system ringtone is set.
+
+const withAlarmSoundAsset = (config) =>
+  withDangerousMod(config, [
+    'android',
+    (config) => {
+      const resRawPath = getResRawPath(config.modRequest.projectRoot);
+      fs.mkdirSync(resRawPath, { recursive: true });
+
+      const src  = path.join(config.modRequest.projectRoot, 'assets', 'sounds', 'alarm-beep.wav');
+      const dest = path.join(resRawPath, 'alarm_beep.wav');
+
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, dest);
+      } else {
+        // Fallback: write a minimal 1-second 440 Hz sine-wave WAV so the build
+        // never fails due to a missing asset. The real file is used in production.
+        const sampleRate   = 44100;
+        const numSamples   = sampleRate; // 1 second
+        const numChannels  = 1;
+        const bitsPerSmp   = 16;
+        const byteRate     = sampleRate * numChannels * (bitsPerSmp / 8);
+        const blockAlign   = numChannels * (bitsPerSmp / 8);
+        const dataSize     = numSamples * blockAlign;
+        const headerSize   = 44;
+        const buf          = Buffer.alloc(headerSize + dataSize);
+        // RIFF header
+        buf.write('RIFF', 0);
+        buf.writeUInt32LE(36 + dataSize, 4);
+        buf.write('WAVE', 8);
+        buf.write('fmt ', 12);
+        buf.writeUInt32LE(16, 16);
+        buf.writeUInt16LE(1, 20);           // PCM
+        buf.writeUInt16LE(numChannels, 22);
+        buf.writeUInt32LE(sampleRate, 24);
+        buf.writeUInt32LE(byteRate, 28);
+        buf.writeUInt16LE(blockAlign, 32);
+        buf.writeUInt16LE(bitsPerSmp, 34);
+        buf.write('data', 36);
+        buf.writeUInt32LE(dataSize, 40);
+        for (let i = 0; i < numSamples; i++) {
+          const t     = i / sampleRate;
+          const val   = Math.sin(2 * Math.PI * 440 * t);
+          const int16 = Math.max(-32768, Math.min(32767, Math.round(val * 32767)));
+          buf.writeInt16LE(int16, headerSize + i * 2);
+        }
+        fs.writeFileSync(dest, buf);
+      }
+
+      return config;
+    },
+  ]);
+
+// ─── Kotlin templates ─────────────────────────────────────────────────────────
 
 const ALARM_RECEIVER = `package com.unsnwooze.app
 
@@ -46,9 +106,8 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Receives broadcasts from AlarmManager and launches AlarmActivity.
- * AlarmActivity sets the lock-screen/wake flags, plays sound + TTS immediately,
- * then opens the React Native deep link.
+ * Woken by AlarmManager. Starts AlarmActivity which plays sound + TTS and
+ * opens the React Native alarm screen via deep link.
  */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -74,9 +133,7 @@ const ALARM_ACTIVITY = `package com.unsnwooze.app
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -86,31 +143,33 @@ import android.view.WindowManager
 import java.util.Locale
 
 /**
- * Bridge activity that:
- *   1. Acquires FULL_WAKE_LOCK — screen turns on from killed/locked state.
- *   2. Sets FLAG_SHOW_WHEN_LOCKED / FLAG_TURN_SCREEN_ON / FLAG_DISMISS_KEYGUARD.
- *   3. Plays the system alarm sound IMMEDIATELY via MediaPlayer (no JS delay).
- *   4. Starts TextToSpeech IMMEDIATELY — speaks alarm title as soon as TTS engine
- *      is initialised (typically <300 ms).
- *   5. Launches the React Native app via the "unsnwooze://" deep link so Expo
- *      Router routes to /alarm/trigger while the native sound is already playing.
- *   6. Finishes itself — only the RN UI is visible. Sound + TTS keep playing via
- *      the companion-object singletons until AlarmModule.stopNativeAlarm() is
- *      called from JavaScript when the user completes the wake-up task.
+ * Full-screen lock-screen bridge activity.
+ *
+ * Execution order in onCreate():
+ *   1. Set FLAG_SHOW_WHEN_LOCKED / FLAG_TURN_SCREEN_ON / FLAG_KEEP_SCREEN_ON
+ *   2. Acquire FULL_WAKE_LOCK so the CPU + screen stay on
+ *   3. Play alarm sound IMMEDIATELY via MediaPlayer (R.raw.alarm_beep)
+ *      — no network call, no JS bundle load, guaranteed device-independent
+ *   4. Initialise TextToSpeech — speaks alarm title the moment TTS is ready
+ *      — uses applicationContext so the callback fires even after finish()
+ *   5. Launch MainActivity via deep link → Expo Router → /alarm/trigger
+ *   6. Call finish() — RN UI takes over; MediaPlayer + TTS keep running via
+ *      companion-object singletons until AlarmModule.stopNativeAlarm() is
+ *      called from JavaScript when the user completes the wake-up task
  */
 class AlarmActivity : Activity() {
 
     companion object {
         @Volatile var activePlayer: MediaPlayer? = null
-        @Volatile var activeTts: TextToSpeech? = null
+        @Volatile var activeTts: TextToSpeech?   = null
 
-        /** Called by AlarmModule.stopNativeAlarm() from the JS side. */
+        /** Called by AlarmModule.stopNativeAlarm() from JavaScript. */
         fun stopAll() {
-            try { activePlayer?.stop() } catch (_: Throwable) {}
+            try { activePlayer?.stop()    } catch (_: Throwable) {}
             try { activePlayer?.release() } catch (_: Throwable) {}
             activePlayer = null
 
-            try { activeTts?.stop() } catch (_: Throwable) {}
+            try { activeTts?.stop()     } catch (_: Throwable) {}
             try { activeTts?.shutdown() } catch (_: Throwable) {}
             activeTts = null
         }
@@ -121,7 +180,7 @@ class AlarmActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ── Lock-screen & wake flags ─────────────────────────────────────────
+        // ── 1. Lock-screen and wake-screen flags ─────────────────────────────
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -133,7 +192,7 @@ class AlarmActivity : Activity() {
             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
 
-        // ── Wake lock (CPU + screen) ─────────────────────────────────────────
+        // ── 2. Wake lock (CPU + screen, max 10 min) ──────────────────────────
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         @Suppress("DEPRECATION")
         wakeLock = pm.newWakeLock(
@@ -142,21 +201,50 @@ class AlarmActivity : Activity() {
             PowerManager.ON_AFTER_RELEASE,
             "unsnwooze:alarm:wakelock"
         )
-        wakeLock?.acquire(10L * 60L * 1000L) // max 10 min
+        wakeLock?.acquire(10L * 60L * 1000L)
 
-        val alarmId  = intent?.getStringExtra("alarmId") ?: ""
-        val rawTitle = (intent?.getStringExtra("title") ?: "Wake Up!").trim()
+        val alarmId    = intent?.getStringExtra("alarmId") ?: ""
+        val rawTitle   = (intent?.getStringExtra("title") ?: "Wake Up!").trim()
         val spokenText = if (rawTitle.isNotEmpty()) "$rawTitle. Wake up." else "Wake up."
 
-        // ── Stop any previously running native alarm (e.g. rapid re-trigger) ─
+        // Stop any previous native alarm (e.g. rapid re-trigger or missed alarm)
         stopAll()
 
-        // ── 1. Play system alarm sound IMMEDIATELY ───────────────────────────
-        startNativeSound(applicationContext)
+        // ── 3. Play alarm sound IMMEDIATELY (R.raw.alarm_beep) ──────────────
+        try {
+            val player = MediaPlayer.create(this, R.raw.alarm_beep)
+            if (player != null) {
+                player.isLooping = true
+                player.start()
+                activePlayer = player
+            }
+        } catch (e: Exception) {
+            // Last-resort fallback: system alarm ringtone
+            try {
+                val uri = android.media.RingtoneManager
+                    .getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+                    ?: android.media.RingtoneManager
+                        .getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
+                if (uri != null) {
+                    val attrs = android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                    val fallback = MediaPlayer().apply {
+                        setAudioAttributes(attrs)
+                        setDataSource(applicationContext, uri)
+                        isLooping = true
+                        prepare()
+                        start()
+                    }
+                    activePlayer = fallback
+                }
+            } catch (_: Throwable) {}
+        }
 
-        // ── 2. Speak the alarm title via TextToSpeech IMMEDIATELY ───────────
-        // TextToSpeech.OnInitListener is a lambda — the Activity may be destroyed
-        // before onInit fires, but applicationContext keeps the TTS service bound.
+        // ── 4. TextToSpeech — speaks title as soon as TTS engine is ready ───
+        // Lambda captures spokenText; applicationContext keeps TTS bound after
+        // this Activity finishes so the utterance always completes.
         val tts = TextToSpeech(applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 try {
@@ -172,7 +260,7 @@ class AlarmActivity : Activity() {
         }
         activeTts = tts
 
-        // ── 3. Open React Native trigger screen via deep link ────────────────
+        // ── 5. Open React Native trigger screen via deep link ────────────────
         val deepLink = "unsnwooze://alarm/trigger?alarmId=\${Uri.encode(alarmId)}"
         val mainIntent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
@@ -183,8 +271,7 @@ class AlarmActivity : Activity() {
         }
         startActivity(mainIntent)
 
-        // ── 4. Finish — only RN UI is visible; sound + TTS keep running ──────
-        // companion-object singletons (activePlayer / activeTts) survive this.
+        // ── 6. Finish — companion-object singletons keep sound + TTS running ─
         finish()
     }
 
@@ -192,45 +279,8 @@ class AlarmActivity : Activity() {
         super.onDestroy()
         try { wakeLock?.release() } catch (_: Throwable) {}
         // Do NOT stop activePlayer/activeTts here — they are companion-object
-        // singletons that must keep playing after this Activity finishes.
-        // They are stopped by AlarmModule.stopNativeAlarm() from JavaScript,
-        // or by the next AlarmActivity.onCreate() via stopAll().
-    }
-
-    private fun startNativeSound(context: Context) {
-        try {
-            // Try the device's designated alarm ringtone first
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                ?: return
-
-            val attrs = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-
-            val player = MediaPlayer().apply {
-                setAudioAttributes(attrs)
-                setDataSource(context, alarmUri)
-                isLooping = true
-                prepare()
-                start()
-            }
-            activePlayer = player
-        } catch (_: Exception) {
-            // Fallback: generic ringtone on default stream
-            try {
-                val fallbackUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                    ?: return
-                val player = MediaPlayer().apply {
-                    setDataSource(context, fallbackUri)
-                    isLooping = true
-                    prepare()
-                    start()
-                }
-                activePlayer = player
-            } catch (_: Throwable) {}
-        }
+        // singletons that must keep running after this Activity is destroyed.
+        // Stopped by AlarmModule.stopNativeAlarm() called from JS stopAlarm().
     }
 }
 `;
@@ -248,15 +298,12 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 
 /**
- * Native module exposed to JavaScript as NativeModules.AlarmModule.
+ * Exposed to JavaScript as NativeModules.AlarmModule.
  *
- *   scheduleAlarm(scheduleId, title, timestampMs)  — set exact alarm
- *   cancelAlarm(scheduleId)                        — cancel scheduled alarm
+ *   scheduleAlarm(scheduleId, title, timestampMs)  — schedule an exact alarm
+ *   cancelAlarm(scheduleId)                        — cancel a scheduled alarm
  *   stopNativeAlarm()                              — stop MediaPlayer + TTS
- *                                                    started by AlarmActivity
- *
- * Each scheduleId is hashed to an Int request code so multiple alarms
- * (including per-weekday repeat slots) can coexist.
+ *                                                    running in AlarmActivity
  */
 class AlarmModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -287,8 +334,8 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     /**
      * Schedule an exact alarm.
      * @param scheduleId   Unique string key (may include weekday suffix for repeats)
-     * @param title        Alarm label shown / spoken on wake
-     * @param timestampMs  Unix timestamp in milliseconds (JS Date.now() compatible)
+     * @param title        Alarm label spoken via TTS on wake
+     * @param timestampMs  Unix timestamp ms (compatible with JS Date.now())
      */
     @ReactMethod
     fun scheduleAlarm(scheduleId: String, title: String, timestampMs: Double, promise: Promise) {
@@ -306,7 +353,7 @@ class AlarmModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    /** Cancel a previously scheduled alarm by its scheduleId. */
+    /** Cancel a previously scheduled alarm. */
     @ReactMethod
     fun cancelAlarm(scheduleId: String, promise: Promise) {
         try {
@@ -327,10 +374,9 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Stop the native MediaPlayer and TextToSpeech that AlarmActivity started.
-     * Called from JavaScript (alarmSound.ts) when the user completes the wake-up
-     * task, so the device-level alarm sound is silenced even if JS-side expo-audio
-     * is stopped separately.
+     * Stop the MediaPlayer and TextToSpeech started by AlarmActivity.
+     * Called from alarmSound.ts (startAlarm and stopAlarm) so the native
+     * audio layer is always silenced when JS audio takes over or the alarm ends.
      */
     @ReactMethod
     fun stopNativeAlarm(promise: Promise) {
@@ -342,7 +388,6 @@ class AlarmModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    // Required for React Native event emitter compatibility
     @ReactMethod fun addListener(eventName: String) {}
     @ReactMethod fun removeListeners(count: Int) {}
 }
@@ -364,7 +409,7 @@ class AlarmPackage : ReactPackage {
 }
 `;
 
-// ─── 1. Write Kotlin source files ─────────────────────────────────────────────
+// ─── Step 1 — Write Kotlin source files ───────────────────────────────────────
 
 const withKotlinFiles = (config) =>
   withDangerousMod(config, [
@@ -373,23 +418,23 @@ const withKotlinFiles = (config) =>
       const pkgPath = getPkgPath(config.modRequest.projectRoot);
       fs.mkdirSync(pkgPath, { recursive: true });
 
-      fs.writeFileSync(path.join(pkgPath, 'AlarmReceiver.kt'), ALARM_RECEIVER,  'utf8');
-      fs.writeFileSync(path.join(pkgPath, 'AlarmActivity.kt'), ALARM_ACTIVITY,  'utf8');
-      fs.writeFileSync(path.join(pkgPath, 'AlarmModule.kt'),   ALARM_MODULE,    'utf8');
-      fs.writeFileSync(path.join(pkgPath, 'AlarmPackage.kt'),  ALARM_PACKAGE,   'utf8');
+      fs.writeFileSync(path.join(pkgPath, 'AlarmReceiver.kt'), ALARM_RECEIVER, 'utf8');
+      fs.writeFileSync(path.join(pkgPath, 'AlarmActivity.kt'), ALARM_ACTIVITY, 'utf8');
+      fs.writeFileSync(path.join(pkgPath, 'AlarmModule.kt'),   ALARM_MODULE,   'utf8');
+      fs.writeFileSync(path.join(pkgPath, 'AlarmPackage.kt'),  ALARM_PACKAGE,  'utf8');
 
       return config;
     },
   ]);
 
-// ─── 2. Patch AndroidManifest.xml ─────────────────────────────────────────────
+// ─── Step 2 — Patch AndroidManifest.xml ──────────────────────────────────────
 
 const withAlarmManifest = (config) =>
   withAndroidManifest(config, (config) => {
     const manifest = config.modResults.manifest;
-    const app = manifest.application[0];
+    const app      = manifest.application[0];
 
-    // ── Permissions ────────────────────────────────────────────────────────
+    // Permissions
     if (!manifest['uses-permission']) manifest['uses-permission'] = [];
     const wantedPerms = [
       'android.permission.SCHEDULE_EXACT_ALARM',
@@ -407,7 +452,8 @@ const withAlarmManifest = (config) =>
       }
     }
 
-    // ── AlarmReceiver ──────────────────────────────────────────────────────
+    // AlarmReceiver — exported:true required so AlarmManager can deliver
+    // broadcasts on aggressive OEM ROMs (MIUI, ColorOS, etc.)
     if (!app.receiver) app.receiver = [];
     const hasReceiver = app.receiver.some(
       (r) => r.$?.['android:name'] === '.AlarmReceiver',
@@ -417,12 +463,12 @@ const withAlarmManifest = (config) =>
         $: {
           'android:name':     '.AlarmReceiver',
           'android:enabled':  'true',
-          'android:exported': 'false',
+          'android:exported': 'true',
         },
       });
     }
 
-    // ── AlarmActivity ──────────────────────────────────────────────────────
+    // AlarmActivity
     if (!app.activity) app.activity = [];
     const hasActivity = app.activity.some(
       (a) => a.$?.['android:name'] === '.AlarmActivity',
@@ -445,7 +491,7 @@ const withAlarmManifest = (config) =>
     return config;
   });
 
-// ─── 3. Register AlarmPackage in MainApplication.kt ──────────────────────────
+// ─── Step 3 — Register AlarmPackage in MainApplication.kt ────────────────────
 
 const withAlarmPackageRegistration = (config) =>
   withDangerousMod(config, [
@@ -459,10 +505,8 @@ const withAlarmPackageRegistration = (config) =>
 
       let src = fs.readFileSync(mainAppPath, 'utf8');
 
-      // Skip if already patched
-      if (src.includes('AlarmPackage()')) return config;
+      if (src.includes('AlarmPackage()')) return config; // already patched
 
-      // Add import after the package declaration
       if (!src.includes('import com.unsnwooze.app.AlarmPackage')) {
         src = src.replace(
           /^(package com\.unsnwooze\.app)/m,
@@ -470,7 +514,6 @@ const withAlarmPackageRegistration = (config) =>
         );
       }
 
-      // Insert packages.add(AlarmPackage()) right after PackageList(this).packages
       src = src.replace(
         /(val packages = PackageList\(.*?\)\.packages)/,
         '$1\n          packages.add(AlarmPackage())',
@@ -484,8 +527,9 @@ const withAlarmPackageRegistration = (config) =>
 // ─── Export combined plugin ───────────────────────────────────────────────────
 
 module.exports = (config) => {
-  config = withKotlinFiles(config);
-  config = withAlarmManifest(config);
-  config = withAlarmPackageRegistration(config);
+  config = withAlarmSoundAsset(config);      // Step 0: res/raw/alarm_beep.wav
+  config = withKotlinFiles(config);           // Step 1: Kotlin sources
+  config = withAlarmManifest(config);         // Step 2: AndroidManifest.xml
+  config = withAlarmPackageRegistration(config); // Step 3: MainApplication.kt
   return config;
 };
