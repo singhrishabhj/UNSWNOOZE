@@ -3,20 +3,46 @@
  * and a Web Audio oscillator pattern on web. Persists across navigation
  * because the player object is a module-level singleton.
  *
+ * Native flow (Android killed-app state):
+ *   AlarmActivity starts immediately → plays system ringtone via MediaPlayer
+ *     + speaks title via TextToSpeech (both in companion-object singletons).
+ *   React Native JS bundle loads → trigger.tsx mounts → startAlarm() is called.
+ *   startAlarm() calls NativeModules.AlarmModule.stopNativeAlarm() FIRST to
+ *   stop the native MediaPlayer/TTS before starting the expo-audio player.
+ *   This prevents two sounds playing simultaneously.
+ *
+ *   stopAlarm() always calls stopNativeAlarm() as well, so whichever layer is
+ *   active at the time the user completes the task is silenced.
+ *
  * Usage:
  *   import { startAlarm, stopAlarm } from '@/services/alarmSound';
  *   await startAlarm();   // starts looping
  *   await stopAlarm();    // stops and releases
  */
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 // ─── Native (expo-audio) ─────────────────────────────────────────────────────
 
 let _player: ReturnType<typeof createAudioPlayer> | null = null;
 
+/** Stop the native MediaPlayer + TTS that AlarmActivity may have started. */
+function _stopNativeLayer(): void {
+  try {
+    if (Platform.OS === 'android' && NativeModules.AlarmModule?.stopNativeAlarm) {
+      // fire-and-forget — no need to await; this is synchronous on the Java side
+      NativeModules.AlarmModule.stopNativeAlarm().catch(() => {});
+    }
+  } catch {}
+}
+
 async function _startNativeAlarm(): Promise<void> {
   try {
+    // Stop the native MediaPlayer/TTS started by AlarmActivity (if any) BEFORE
+    // starting expo-audio. Without this, both sounds play simultaneously for
+    // 1–3 seconds while the JS bundle finishes loading.
+    _stopNativeLayer();
+
     // setAudioModeAsync is best-effort: if it fails (e.g. unsupported device
     // option) we still want the player to start, so it gets its own try/catch.
     try {
@@ -53,6 +79,9 @@ async function _stopNativeAlarm(): Promise<void> {
   } catch (e) {
     console.warn('[alarmSound] Native stop failed:', e);
   }
+  // Also stop the native MediaPlayer/TTS started by AlarmActivity. Safe to call
+  // even if no native alarm is active (stopAll() is a no-op in that case).
+  _stopNativeLayer();
 }
 
 // ─── Web (AudioContext oscillators) ──────────────────────────────────────────

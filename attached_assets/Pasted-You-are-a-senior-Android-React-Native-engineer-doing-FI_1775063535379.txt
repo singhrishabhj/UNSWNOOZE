@@ -1,0 +1,157 @@
+You are a senior Android + React Native engineer doing FINAL QA and fixing any remaining issues.
+
+The alarm system has already been implemented using:
+
+* AlarmManager
+* BroadcastReceiver (AlarmReceiver)
+* Full-screen activity (AlarmActivity)
+* Native module bridge
+
+Your job is to VERIFY EVERYTHING works correctly and FIX anything broken.
+
+---
+
+## 🎯 EXPECTED FINAL BEHAVIOR (STRICT)
+
+When an alarm is set:
+
+1. Alarm MUST trigger even if:
+
+   * App is killed
+   * App is in background
+   * Phone is locked
+
+2. When alarm fires:
+
+   * Screen should TURN ON
+   * Full-screen alarm UI (AlarmActivity) should OPEN automatically
+   * No user interaction required
+
+3. Sound:
+
+   * Alarm sound MUST play immediately
+   * Should NOT depend on notification click
+   * Should work in silent edge cases (use proper audio stream if needed)
+
+4. Voice:
+
+   * Alarm title MUST be spoken using TextToSpeech
+   * Must work even when app is killed
+
+---
+
+## 🔍 VERIFY THESE CRITICAL POINTS
+
+### 1. AlarmManager
+
+* Using setExactAndAllowWhileIdle
+* Correct timestamp being passed
+* PendingIntent is correct and unique
+
+---
+
+### 2. AlarmReceiver
+
+* Receives broadcast correctly
+* Starts AlarmActivity using intent
+* Passes title data correctly
+* No crashes
+
+---
+
+### 3. AlarmActivity (CRITICAL)
+
+Must include:
+
+* FLAG_SHOW_WHEN_LOCKED
+* FLAG_TURN_SCREEN_ON
+* FLAG_KEEP_SCREEN_ON
+
+Also verify:
+
+* Activity launches on lock screen
+* Not blocked by OS restrictions
+
+---
+
+### 4. AndroidManifest.xml
+
+Verify:
+
+* AlarmReceiver registered
+* AlarmActivity registered with:
+  android:showWhenLocked="true"
+  android:turnScreenOn="true"
+* Required permissions exist:
+  WAKE_LOCK
+  USE_FULL_SCREEN_INTENT
+  SCHEDULE_EXACT_ALARM
+
+---
+
+### 5. Sound System
+
+* MediaPlayer used correctly
+* Sound file exists and loads
+* Starts automatically in AlarmActivity or Receiver
+
+---
+
+### 6. TextToSpeech
+
+* Initializes correctly
+* Speaks title immediately
+* No delay or failure
+
+---
+
+### 7. JS SIDE
+
+* Uses NativeModules.AlarmModule.scheduleAlarm(...)
+* NOT relying on expo-notifications for triggering
+
+---
+
+## ❌ FIX ANY ISSUES FOUND
+
+If ANY of the above is broken:
+
+* Fix it immediately
+* Do NOT suggest — implement directly
+
+---
+
+## ✅ OUTPUT REQUIRED
+
+Provide:
+
+1. Final corrected code (only changed files)
+2. Confirmation checklist like:
+
+✔ Alarm works when app killed
+✔ Works on lock screen
+✔ Full screen opens
+✔ Sound plays automatically
+✔ TTS speaks title
+
+---
+
+## 🚨 IMPORTANT
+
+* DO NOT redesign UI
+* DO NOT remove existing logic unless broken
+* ONLY fix functionality
+* Ensure production-ready behavior
+
+---
+
+## FINAL GOAL
+
+App should behave EXACTLY like Android Clock alarm:
+
+* Full screen
+* Loud sound
+* Voice
+* Works in all states
+
+NO PARTIAL FIX. ENSURE EVERYTHING WORKS.
