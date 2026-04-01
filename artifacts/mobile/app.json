@@ -39,7 +39,8 @@
         "android.permission.USE_EXACT_ALARM",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_FULL_SCREEN_INTENT",
-        "android.permission.FOREGROUND_SERVICE"
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -70,7 +71,8 @@
           "defaultChannel": "alarms",
           "sounds": []
         }
-      ]
+      ],
+      "./plugins/withAndroidAlarm"
     ],
     "experiments": {
       "typedRoutes": true,

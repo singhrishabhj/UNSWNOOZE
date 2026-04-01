@@ -69,6 +69,8 @@ Smart alarm app that prevents snooze abuse.
 - `artifacts/mobile/services/storage.ts` — Typed AsyncStorage wrapper (storageService.load/save)
 - `artifacts/mobile/services/alarmSound.ts` — Alarm audio singleton (expo-audio on native, WebAudio on web; loop/stop API)
 - `artifacts/mobile/services/notificationService.ts` — expo-notifications scheduler; syncAlarmNotifications() cancels+reschedules on every alarm change; IDs stored in AsyncStorage key `@unsnwooze_notif_ids`
+- `artifacts/mobile/services/nativeAlarmService.ts` — Native AlarmManager bridge; syncNativeAlarms() mirrors same cancel+reschedule pattern; IDs in `@unsnwooze_native_alarm_ids`; no-op in Expo Go / web / iOS
+- `artifacts/mobile/plugins/withAndroidAlarm.js` — Expo config plugin; generates 4 Kotlin files + patches AndroidManifest.xml + MainApplication.kt during EAS Build prebuild
 - `artifacts/mobile/components/DigitalClock.tsx` — Animated digit clock (single setInterval, cleanup on unmount)
 - `artifacts/mobile/components/StreakRing.tsx` — Circular streak progress (React.memo)
 - `artifacts/mobile/components/AlarmCard.tsx` — Alarm list card (React.memo)
@@ -103,10 +105,33 @@ Smart alarm app that prevents snooze abuse.
 
 ### Alarm Scheduling Architecture
 1. **Foreground**: `useAlarmScheduler` hook polls every 5 s; navigates to `/alarm/trigger` when clock matches
-2. **Background / closed**: `expo-notifications` local notifications fired by the OS; tapping opens app and navigates to trigger via `addNotificationResponseReceivedListener` in `_layout.tsx`
-3. **Sound**: `startAlarm()` / `stopAlarm()` in `services/alarmSound.ts`; alarm persists across navigation — only silenced in task.tsx on success or give-up
-4. **TTS**: `expo-speech` speaks alarm title 1.2 s after sound starts (native only)
-5. **Notification sync**: `NotificationSync` component in `_layout.tsx` calls `syncAlarmNotifications` whenever `data.alarms` changes
+2. **Background / closed (Android native)**: `services/nativeAlarmService.ts` calls `NativeModules.AlarmModule.scheduleAlarm()` — uses Android `AlarmManager.setExactAndAllowWhileIdle`. On fire: `AlarmReceiver.kt` → `AlarmActivity.kt` (acquires FULL_WAKE_LOCK, sets FLAG_SHOW_WHEN_LOCKED, fires deep link `unsnwooze://alarm/trigger?alarmId=xxx`) → Expo Router navigates to trigger screen automatically
+3. **Background / closed (fallback)**: `expo-notifications` local notifications. Tapping notification opens app and navigates to trigger via `addNotificationResponseReceivedListener` in `_layout.tsx`
+4. **Sound**: `startAlarm()` / `stopAlarm()` in `services/alarmSound.ts`; alarm persists across navigation — only silenced in task.tsx on success or give-up
+5. **TTS**: `expo-speech` speaks alarm title 1.2 s after sound starts (native only)
+6. **Sync**: `NotificationSync` component in `_layout.tsx` calls both `syncAlarmNotifications` AND `syncNativeAlarms` whenever `data.alarms` changes
+
+### Native Android Alarm — Config Plugin
+- Plugin: `plugins/withAndroidAlarm.js` (runs during EAS Build prebuild)
+- Writes to `android/app/src/main/java/com/unsnwooze/app/`:
+  - `AlarmReceiver.kt` — BroadcastReceiver triggered by AlarmManager
+  - `AlarmActivity.kt` — Minimal activity that sets lock-screen flags + opens deep link into RN app
+  - `AlarmModule.kt` — React Native native module (scheduleAlarm / cancelAlarm)
+  - `AlarmPackage.kt` — Registers AlarmModule with the React bridge
+- Patches `AndroidManifest.xml`: SCHEDULE_EXACT_ALARM, USE_FULL_SCREEN_INTENT, WAKE_LOCK permissions + receiver + activity entries
+- Patches `MainApplication.kt`: adds `AlarmPackage()` to `getPackages()`
+
+### EAS Build (Deploy)
+```bash
+# Install EAS CLI (once)
+npm install -g eas-cli
+# Log into your Expo account
+eas login
+# Build a preview APK (sideloadable, includes native alarm)
+eas build --profile preview --platform android
+# Build production AAB (for Play Store)
+eas build --profile production --platform android
+```
 
 ### TimePicker Fix (Android)
 `components/TimePicker.tsx` debounces `onScrollEndDrag` by 120 ms on Android to prevent multiple premature fires. Also: `nestedScrollEnabled` on drum columns, `useCallback` on all handlers.

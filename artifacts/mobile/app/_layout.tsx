@@ -27,6 +27,7 @@ import {
   setupAndroidNotificationChannel,
   syncAlarmNotifications,
 } from "@/services/notificationService";
+import { syncNativeAlarms } from "@/services/nativeAlarmService";
 
 // If fonts don't resolve within this window we render anyway using system fonts.
 // This prevents a permanent blank screen when the device is offline at startup.
@@ -68,12 +69,15 @@ function AlarmScheduler() {
   return null;
 }
 
-// Syncs expo-notifications whenever the alarm list changes
+// Syncs expo-notifications AND native AlarmManager whenever the alarm list changes.
+// Both run in parallel: expo-notifications handles Expo Go / iOS / notification UI;
+// native AlarmManager handles killed-app / lock-screen wakeup on Android.
 function NotificationSync() {
   const { data } = useApp();
 
   useEffect(() => {
     syncAlarmNotifications(data.alarms);
+    syncNativeAlarms(data.alarms);
   }, [data.alarms]);
 
   return null;

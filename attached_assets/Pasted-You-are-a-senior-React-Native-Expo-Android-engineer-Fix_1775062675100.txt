@@ -1,0 +1,169 @@
+You are a senior React Native + Expo + Android engineer.
+
+Fix my existing Expo (prebuild) alarm app with MINIMAL changes. Do NOT redesign anything. Only fix alarm behavior.
+
+## CURRENT PROBLEM
+
+1. Alarm notification appears but:
+
+   * No sound plays reliably
+   * Full-screen alarm UI does NOT open automatically
+   * Works only when user taps notification
+2. Does NOT work when:
+
+   * Phone is locked
+   * App is in background or killed
+
+## REQUIRED FINAL BEHAVIOR (STRICT)
+
+1. Alarm MUST:
+
+   * Trigger even when app is killed
+   * Wake the device
+   * Open FULL SCREEN activity (like real alarm app)
+   * Play sound immediately
+   * Speak alarm title using TextToSpeech (TTS)
+
+2. NO user interaction required (no tapping notification)
+
+---
+
+## TECH STACK (IMPORTANT)
+
+* Expo (prebuild already done → android folder exists)
+* React Native
+* Using expo-notifications currently (can keep or bypass)
+* pnpm project
+
+---
+
+## IMPLEMENTATION REQUIREMENTS (FOLLOW EXACTLY)
+
+### 1. USE NATIVE ANDROID ALARM SYSTEM
+
+* Use AlarmManager with:
+
+  * setExactAndAllowWhileIdle
+* Use BroadcastReceiver (AlarmReceiver.kt)
+
+---
+
+### 2. CREATE / FIX THESE FILES
+
+#### (A) AlarmReceiver.kt
+
+* Receive broadcast
+* Start a FULL SCREEN activity
+* Initialize TextToSpeech
+* Speak alarm title
+* Play alarm sound (MediaPlayer)
+
+---
+
+#### (B) AlarmActivity.kt (NEW - IMPORTANT)
+
+* Full screen activity
+* Show alarm UI (basic screen is fine)
+* Set flags:
+
+  * FLAG_SHOW_WHEN_LOCKED
+  * FLAG_TURN_SCREEN_ON
+  * FLAG_KEEP_SCREEN_ON
+* This is CRITICAL for lock screen
+
+---
+
+#### (C) AlarmModule.kt
+
+* Expose function to JS:
+  scheduleAlarm(title: string, timestamp: number)
+* Use AlarmManager + PendingIntent
+
+---
+
+#### (D) AlarmPackage.kt
+
+* Register module
+
+---
+
+### 3. ANDROID MANIFEST FIXES
+
+Add:
+
+* <receiver android:name=".AlarmReceiver" />
+* <activity android:name=".AlarmActivity" 
+  android:showWhenLocked="true"
+  android:turnScreenOn="true"
+  android:exported="true"
+  android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+Permissions required:
+
+* WAKE_LOCK
+* USE_FULL_SCREEN_INTENT
+* SCHEDULE_EXACT_ALARM
+
+---
+
+### 4. REMOVE DEPENDENCE ON EXPO NOTIFICATIONS FOR TRIGGER
+
+* Do NOT rely on Notifications.scheduleNotificationAsync for alarm firing
+* Only use native AlarmManager
+
+(Notifications can remain for UI if needed, but NOT for trigger)
+
+---
+
+### 5. SOUND + TTS
+
+* Use MediaPlayer for sound
+* Use TextToSpeech for speaking title
+* Both must work in:
+
+  * background
+  * killed app
+  * lock screen
+
+---
+
+### 6. JS SIDE CHANGE
+
+* Replace notification scheduling with:
+  NativeModules.AlarmModule.scheduleAlarm(title, timestamp)
+
+---
+
+### 7. KEEP CHANGES MINIMAL
+
+* Do NOT change UI unnecessarily
+* Do NOT restructure project
+* Only fix alarm system
+
+---
+
+## OUTPUT REQUIRED
+
+1. Full working code for:
+
+   * AlarmReceiver.kt
+   * AlarmActivity.kt
+   * AlarmModule.kt
+   * AlarmPackage.kt
+   * AndroidManifest.xml changes
+   * JS changes
+
+2. Ensure app works immediately after:
+   npx expo run:android
+
+---
+
+## FINAL GOAL
+
+App should behave like:
+
+* Android Clock app alarm
+* Full screen + sound + voice
+* Works even if app is killed
+
+NO PARTIAL SOLUTION. ONLY COMPLETE WORKING FIX.
