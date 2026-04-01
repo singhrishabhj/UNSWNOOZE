@@ -15,7 +15,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -69,15 +69,32 @@ function AlarmScheduler() {
   return null;
 }
 
-// Syncs expo-notifications AND native AlarmManager whenever the alarm list changes.
-// Both run in parallel: expo-notifications handles Expo Go / iOS / notification UI;
-// native AlarmManager handles killed-app / lock-screen wakeup on Android.
+// Syncs expo-notifications AND native AlarmManager whenever the alarm list changes,
+// and again every time the app returns to the foreground.
+//
+// The foreground resync is critical for repeat alarms: AlarmManager fires each
+// alarm ONCE and removes it from its own schedule. Without a resync on foreground,
+// the alarm would never ring again next week (data.alarms doesn't change when an
+// alarm fires, so the [data.alarms] effect would never re-run).
 function NotificationSync() {
   const { data } = useApp();
 
+  // Sync on alarm-list changes (add / edit / delete / toggle)
   useEffect(() => {
     syncAlarmNotifications(data.alarms);
     syncNativeAlarms(data.alarms);
+  }, [data.alarms]);
+
+  // Sync on foreground resume so repeat alarms are always rescheduled
+  // for their next occurrence after they fire.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        syncAlarmNotifications(data.alarms);
+        syncNativeAlarms(data.alarms);
+      }
+    });
+    return () => sub.remove();
   }, [data.alarms]);
 
   return null;

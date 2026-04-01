@@ -128,6 +128,36 @@ class AlarmReceiver : BroadcastReceiver() {
 }
 `;
 
+const BOOT_RECEIVER = `package com.unsnwooze.app
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+
+/**
+ * Receives ACTION_BOOT_COMPLETED (and OEM equivalents) after the device reboots.
+ * AlarmManager alarms are cleared on reboot; we restart the app so the React
+ * Native layer can reschedule them via NotificationSync (syncNativeAlarms +
+ * syncAlarmNotifications).
+ */
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val action = intent.action ?: return
+        if (action == Intent.ACTION_BOOT_COMPLETED ||
+            action == "android.intent.action.QUICKBOOT_POWERON" ||
+            action == "com.htc.intent.action.QUICKBOOT_POWERON") {
+            try {
+                val mainIntent = Intent(context, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra("from_boot", true)
+                }
+                context.startActivity(mainIntent)
+            } catch (_: Throwable) {}
+        }
+    }
+}
+`;
+
 const ALARM_ACTIVITY = `package com.unsnwooze.app
 
 import android.app.Activity
@@ -243,18 +273,20 @@ class AlarmActivity : Activity() {
         }
 
         // ── 4. TextToSpeech — speaks title as soon as TTS engine is ready ───
-        // Lambda captures spokenText; applicationContext keeps TTS bound after
-        // this Activity finishes so the utterance always completes.
+        // activeTts is assigned BEFORE this callback ever fires (Android TTS
+        // always calls OnInitListener asynchronously via a Handler post, so the
+        // assignment below is guaranteed to complete first).
         val tts = TextToSpeech(applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 try {
-                    activeTts?.language = Locale.getDefault()
-                    activeTts?.speak(
-                        spokenText,
-                        TextToSpeech.QUEUE_FLUSH,
-                        null,
-                        "alarm_speech"
-                    )
+                    val ref = activeTts ?: return@TextToSpeech
+                    // Attempt device locale; fall back to English if unsupported.
+                    val locResult = ref.setLanguage(Locale.getDefault())
+                    if (locResult == TextToSpeech.LANG_MISSING_DATA ||
+                        locResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        ref.setLanguage(Locale.ENGLISH)
+                    }
+                    ref.speak(spokenText, TextToSpeech.QUEUE_FLUSH, null, "alarm_speech")
                 } catch (_: Throwable) {}
             }
         }
@@ -342,10 +374,23 @@ class AlarmModule(reactContext: ReactApplicationContext) :
         try {
             val triggerAt = timestampMs.toLong()
             val pi = pendingIntent(scheduleId, title)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                    // Android 12+: SCHEDULE_EXACT_ALARM requires explicit user grant.
+                    // Use exact if granted; fall back to setAndAllowWhileIdle (~15 min window)
+                    // so the alarm still fires rather than silently failing.
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                    } else {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                    }
+                }
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                }
+                else -> {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+                }
             }
             promise.resolve(null)
         } catch (e: Exception) {
@@ -422,6 +467,7 @@ const withKotlinFiles = (config) =>
       fs.writeFileSync(path.join(pkgPath, 'AlarmActivity.kt'), ALARM_ACTIVITY, 'utf8');
       fs.writeFileSync(path.join(pkgPath, 'AlarmModule.kt'),   ALARM_MODULE,   'utf8');
       fs.writeFileSync(path.join(pkgPath, 'AlarmPackage.kt'),  ALARM_PACKAGE,  'utf8');
+      fs.writeFileSync(path.join(pkgPath, 'BootReceiver.kt'),  BOOT_RECEIVER,  'utf8');
 
       return config;
     },
@@ -455,16 +501,43 @@ const withAlarmManifest = (config) =>
     // AlarmReceiver — exported:true required so AlarmManager can deliver
     // broadcasts on aggressive OEM ROMs (MIUI, ColorOS, etc.)
     if (!app.receiver) app.receiver = [];
-    const hasReceiver = app.receiver.some(
+    const hasAlarmReceiver = app.receiver.some(
       (r) => r.$?.['android:name'] === '.AlarmReceiver',
     );
-    if (!hasReceiver) {
+    if (!hasAlarmReceiver) {
       app.receiver.push({
         $: {
           'android:name':     '.AlarmReceiver',
           'android:enabled':  'true',
           'android:exported': 'true',
         },
+      });
+    }
+
+    // BootReceiver — reschedules AlarmManager alarms after device reboot.
+    // AlarmManager entries are cleared by the OS on reboot; this receiver
+    // starts MainActivity which re-runs syncNativeAlarms via NotificationSync.
+    const hasBootReceiver = app.receiver.some(
+      (r) => r.$?.['android:name'] === '.BootReceiver',
+    );
+    if (!hasBootReceiver) {
+      app.receiver.push({
+        $: {
+          'android:name':     '.BootReceiver',
+          'android:enabled':  'true',
+          'android:exported': 'true',
+        },
+        'intent-filter': [
+          {
+            action: [
+              { $: { 'android:name': 'android.intent.action.BOOT_COMPLETED' } },
+              { $: { 'android:name': 'android.intent.action.QUICKBOOT_POWERON' } },
+            ],
+            category: [
+              { $: { 'android:name': 'android.intent.category.DEFAULT' } },
+            ],
+          },
+        ],
       });
     }
 
