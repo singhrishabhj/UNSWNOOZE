@@ -1,0 +1,112 @@
+You are a senior React Native + Expo Android engineer.
+
+Fix ONLY the alarm triggering behavior in this project. Do NOT refactor the app or change unrelated code. Make minimal, surgical changes.
+
+## Problem
+
+* Alarm does NOT show in full screen when phone is locked
+* Alarm sound does NOT play reliably
+* App uses Expo + custom native alarm service
+
+## Goal
+
+Make alarm behave like a real alarm app:
+
+* Full screen UI opens when alarm triggers (even if phone is locked)
+* Loud alarm sound plays consistently
+* Works in background / killed state (Android)
+
+---
+
+## Required Fixes (ONLY THESE)
+
+### 1. Fix Android Full-Screen Alarm Behavior
+
+Update native Android implementation:
+
+* Use `AlarmManager.setExactAndAllowWhileIdle`
+* Trigger a `BroadcastReceiver`
+* Launch a full-screen activity using:
+
+  * `setShowWhenLocked(true)`
+  * `setTurnScreenOn(true)`
+  * `KeyguardManager` to dismiss lockscreen
+
+---
+
+### 2. Fix Notification (CRITICAL)
+
+Create a HIGH PRIORITY notification channel:
+
+* Importance: `IMPORTANCE_HIGH`
+* Category: `CATEGORY_ALARM`
+* Enable:
+
+  * sound
+  * vibration
+
+Use full-screen intent:
+
+```java
+notificationBuilder.setFullScreenIntent(pendingIntent, true);
+```
+
+---
+
+### 3. Fix Alarm Sound
+
+Ensure sound plays even in silent mode:
+
+* Use `AudioAttributes.USAGE_ALARM`
+* NOT media usage
+* Use looping sound (RingtoneManager or MediaPlayer)
+
+---
+
+### 4. Update Permissions (AndroidManifest.xml)
+
+Add:
+
+```xml
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+<uses-permission android:name="android.permission.WAKE_LOCK"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+```
+
+---
+
+### 5. Fix Existing Service ONLY (do not rewrite)
+
+Modify:
+
+* `nativeAlarmService.ts`
+* `withAndroidAlarm.js`
+
+Ensure:
+
+* Alarm triggers native layer properly
+* No JS-only timers
+
+---
+
+### 6. DO NOT TOUCH
+
+* UI design
+* Navigation
+* Existing screens
+* Business logic
+
+---
+
+## Output Required
+
+* Show EXACT code changes only
+* Mention file names clearly
+* No explanations, only implementation
+
+---
+
+## Important
+
+Keep everything Expo-compatible. Do not eject fully. Use config plugin if needed.

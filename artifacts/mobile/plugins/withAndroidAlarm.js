@@ -101,15 +101,40 @@ const withAlarmSoundAsset = (config) =>
 
 const ALARM_RECEIVER = `package com.unsnwooze.app
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.os.Build
 
 /**
- * Woken by AlarmManager. Starts AlarmActivity which plays sound + TTS and
- * opens the React Native alarm screen via deep link.
+ * Woken by AlarmManager (exact alarm).
+ *
+ * On Android 10+ apps cannot call startActivity() from the background reliably —
+ * OEM ROMs (MIUI, ColorOS, EMUI, etc.) block it entirely. The only guaranteed
+ * mechanism is a full-screen intent notification: Android itself shows the target
+ * activity as a full-screen UI when the device is locked, or as a heads-up
+ * notification when it is unlocked.
+ *
+ * Flow:
+ *   1. Build AlarmActivity PendingIntent (shown full-screen by Android)
+ *   2. Create/ensure high-priority alarm notification channel (Android 8+)
+ *   3. Post notification with setFullScreenIntent(true) — Android presents
+ *      AlarmActivity on the lock screen automatically
+ *   4. Try startActivity() as a secondary best-effort for older ROMs / API < 29
  */
 class AlarmReceiver : BroadcastReceiver() {
+
+    companion object {
+        const val CHANNEL_ID   = "unsnwooze_native_alarm"
+        const val CHANNEL_NAME = "Alarms"
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra("alarmId") ?: return
         val title   = intent.getStringExtra("title")   ?: "Wake Up!"
@@ -123,7 +148,71 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("alarmId", alarmId)
             putExtra("title",   title)
         }
-        context.startActivity(activityIntent)
+
+        // PendingIntent used both as the full-screen intent and as the tap intent
+        val notifId = alarmId.hashCode() and 0x7FFFFFFF
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notifId,
+            activityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // ── Create alarm notification channel (Android 8+) ──────────────────
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (nm.getNotificationChannel(CHANNEL_ID) == null) {
+                val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                val audioAttrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description          = "UNSNWOOZE alarm notifications"
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setBypassDnd(true)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 500, 200, 500)
+                    setSound(alarmUri, audioAttrs)
+                }
+                nm.createNotificationChannel(channel)
+            }
+        }
+
+        // ── Build & post full-screen notification ────────────────────────────
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(context, CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(context)
+        }
+
+        val notification = builder
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("UNSNWOOZE \u2014 Time to Wake Up!")
+            .setContentText(title)
+            .setCategory(Notification.CATEGORY_ALARM)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setPriority(Notification.PRIORITY_MAX)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setFullScreenIntent(pendingIntent, true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        // Store so AlarmModule.stopNativeAlarm() can cancel it
+        AlarmActivity.activeNotifId = notifId
+
+        nm.notify(notifId, notification)
+
+        // Secondary best-effort: direct startActivity (works on some ROMs / API < 29)
+        try { context.startActivity(activityIntent) } catch (_: Throwable) {}
     }
 }
 `;
@@ -161,8 +250,11 @@ class BootReceiver : BroadcastReceiver() {
 const ALARM_ACTIVITY = `package com.unsnwooze.app
 
 import android.app.Activity
+import android.app.KeyguardManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
@@ -175,23 +267,28 @@ import java.util.Locale
 /**
  * Full-screen lock-screen bridge activity.
  *
+ * Launched via AlarmReceiver's fullScreenIntent notification (the only reliable
+ * mechanism on Android 10+ for showing UI over the lock screen).
+ *
  * Execution order in onCreate():
- *   1. Set FLAG_SHOW_WHEN_LOCKED / FLAG_TURN_SCREEN_ON / FLAG_KEEP_SCREEN_ON
- *   2. Acquire FULL_WAKE_LOCK so the CPU + screen stay on
- *   3. Play alarm sound IMMEDIATELY via MediaPlayer (R.raw.alarm_beep)
- *      — no network call, no JS bundle load, guaranteed device-independent
- *   4. Initialise TextToSpeech — speaks alarm title the moment TTS is ready
- *      — uses applicationContext so the callback fires even after finish()
- *   5. Launch MainActivity via deep link → Expo Router → /alarm/trigger
- *   6. Call finish() — RN UI takes over; MediaPlayer + TTS keep running via
- *      companion-object singletons until AlarmModule.stopNativeAlarm() is
- *      called from JavaScript when the user completes the wake-up task
+ *   1. Set showWhenLocked / turnScreenOn (API 27+) + legacy window flags
+ *   2. Dismiss keyguard (API 26+) so the user sees the alarm immediately
+ *   3. Acquire FULL_WAKE_LOCK so CPU + screen stay on
+ *   4. Cancel the ongoing alarm notification (we are now the visible UI)
+ *   5. Play alarm sound IMMEDIATELY via MediaPlayer (R.raw.alarm_beep,
+ *      USAGE_ALARM so it plays even in silent / DnD mode)
+ *   6. Fallback to system alarm ringtone if R.raw.alarm_beep fails
+ *   7. Initialise TextToSpeech — speaks alarm title when engine is ready
+ *   8. Deep-link into MainActivity → /alarm/trigger (the React Native UI)
+ *   9. finish() — MediaPlayer + TTS keep running via companion-object
+ *      singletons until AlarmModule.stopNativeAlarm() is called from JS
  */
 class AlarmActivity : Activity() {
 
     companion object {
-        @Volatile var activePlayer: MediaPlayer? = null
-        @Volatile var activeTts: TextToSpeech?   = null
+        @Volatile var activePlayer:  MediaPlayer?  = null
+        @Volatile var activeTts:     TextToSpeech? = null
+        @Volatile var activeNotifId: Int           = -1   // set by AlarmReceiver
 
         /** Called by AlarmModule.stopNativeAlarm() from JavaScript. */
         fun stopAll() {
@@ -222,7 +319,17 @@ class AlarmActivity : Activity() {
             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
 
-        // ── 2. Wake lock (CPU + screen, max 10 min) ──────────────────────────
+        // ── 2. Dismiss keyguard (API 26+) ────────────────────────────────────
+        // requestDismissKeyguard() is the modern replacement for
+        // FLAG_DISMISS_KEYGUARD which was deprecated in API 26.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                km.requestDismissKeyguard(this, null)
+            } catch (_: Throwable) {}
+        }
+
+        // ── 3. Wake lock (CPU + screen, max 10 min) ──────────────────────────
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         @Suppress("DEPRECATION")
         wakeLock = pm.newWakeLock(
@@ -237,31 +344,46 @@ class AlarmActivity : Activity() {
         val rawTitle   = (intent?.getStringExtra("title") ?: "Wake Up!").trim()
         val spokenText = if (rawTitle.isNotEmpty()) "$rawTitle. Wake up." else "Wake up."
 
+        // ── 4. Cancel the fullScreenIntent notification (we are the visible UI) ─
+        // The notification is no longer needed now that AlarmActivity is shown.
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (activeNotifId >= 0) nm.cancel(activeNotifId)
+        } catch (_: Throwable) {}
+
         // Stop any previous native alarm (e.g. rapid re-trigger or missed alarm)
         stopAll()
 
-        // ── 3. Play alarm sound IMMEDIATELY (R.raw.alarm_beep) ──────────────
+        // ── 5. Play alarm sound IMMEDIATELY (R.raw.alarm_beep, USAGE_ALARM) ──
+        // USAGE_ALARM bypasses silent/DnD mode on most devices.
         try {
+            val attrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
             val player = MediaPlayer.create(this, R.raw.alarm_beep)
             if (player != null) {
+                player.setAudioAttributes(attrs)
                 player.isLooping = true
                 player.start()
                 activePlayer = player
+            } else {
+                throw IllegalStateException("MediaPlayer.create returned null")
             }
         } catch (e: Exception) {
-            // Last-resort fallback: system alarm ringtone
+            // ── 6. Fallback: system alarm ringtone ───────────────────────────
             try {
                 val uri = android.media.RingtoneManager
                     .getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
                     ?: android.media.RingtoneManager
                         .getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
                 if (uri != null) {
-                    val attrs = android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    val fallbackAttrs = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
                     val fallback = MediaPlayer().apply {
-                        setAudioAttributes(attrs)
+                        setAudioAttributes(fallbackAttrs)
                         setDataSource(applicationContext, uri)
                         isLooping = true
                         prepare()
@@ -272,15 +394,13 @@ class AlarmActivity : Activity() {
             } catch (_: Throwable) {}
         }
 
-        // ── 4. TextToSpeech — speaks title as soon as TTS engine is ready ───
-        // activeTts is assigned BEFORE this callback ever fires (Android TTS
-        // always calls OnInitListener asynchronously via a Handler post, so the
-        // assignment below is guaranteed to complete first).
+        // ── 7. TextToSpeech — speaks title as soon as TTS engine is ready ────
+        // activeTts is assigned BEFORE the callback fires (Android always
+        // delivers OnInitListener asynchronously via a Handler post).
         val tts = TextToSpeech(applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 try {
                     val ref = activeTts ?: return@TextToSpeech
-                    // Attempt device locale; fall back to English if unsupported.
                     val locResult = ref.setLanguage(Locale.getDefault())
                     if (locResult == TextToSpeech.LANG_MISSING_DATA ||
                         locResult == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -292,7 +412,7 @@ class AlarmActivity : Activity() {
         }
         activeTts = tts
 
-        // ── 5. Open React Native trigger screen via deep link ────────────────
+        // ── 8. Open React Native trigger screen via deep link ─────────────────
         val deepLink = "unsnwooze://alarm/trigger?alarmId=\${Uri.encode(alarmId)}"
         val mainIntent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
@@ -303,7 +423,7 @@ class AlarmActivity : Activity() {
         }
         startActivity(mainIntent)
 
-        // ── 6. Finish — companion-object singletons keep sound + TTS running ─
+        // ── 9. Finish — companion-object singletons keep sound + TTS running ──
         finish()
     }
 
@@ -312,7 +432,7 @@ class AlarmActivity : Activity() {
         try { wakeLock?.release() } catch (_: Throwable) {}
         // Do NOT stop activePlayer/activeTts here — they are companion-object
         // singletons that must keep running after this Activity is destroyed.
-        // Stopped by AlarmModule.stopNativeAlarm() called from JS stopAlarm().
+        // Stopped by AlarmModule.stopNativeAlarm() called from JS.
     }
 }
 `;
@@ -419,14 +539,26 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Stop the MediaPlayer and TextToSpeech started by AlarmActivity.
-     * Called from alarmSound.ts (startAlarm and stopAlarm) so the native
-     * audio layer is always silenced when JS audio takes over or the alarm ends.
+     * Stop the MediaPlayer and TextToSpeech started by AlarmActivity, and
+     * cancel the fullScreenIntent notification posted by AlarmReceiver.
+     * Called from alarmSound.ts so the native audio layer is always silenced
+     * when JS audio takes over or the alarm ends.
      */
     @ReactMethod
     fun stopNativeAlarm(promise: Promise) {
         try {
             AlarmActivity.stopAll()
+            // Cancel the ongoing alarm notification so it doesn't linger
+            // in the notification shade after the wake-up task is complete.
+            try {
+                val nm = reactApplicationContext
+                    .getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                val notifId = AlarmActivity.activeNotifId
+                if (notifId >= 0) {
+                    nm.cancel(notifId)
+                    AlarmActivity.activeNotifId = -1
+                }
+            } catch (_: Throwable) {}
             promise.resolve(null)
         } catch (e: Exception) {
             promise.reject("STOP_NATIVE_ALARM_ERROR", e.message, e)
@@ -488,6 +620,9 @@ const withAlarmManifest = (config) =>
       'android.permission.USE_FULL_SCREEN_INTENT',
       'android.permission.RECEIVE_BOOT_COMPLETED',
       'android.permission.WAKE_LOCK',
+      'android.permission.POST_NOTIFICATIONS',
+      'android.permission.FOREGROUND_SERVICE',
+      'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
     ];
     for (const perm of wantedPerms) {
       const exists = manifest['uses-permission'].some(
