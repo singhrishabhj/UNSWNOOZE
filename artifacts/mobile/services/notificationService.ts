@@ -1,21 +1,33 @@
 /**
  * Notification service — schedules / cancels local alarm notifications via
- * expo-notifications so alarms fire even when the app is in the background
- * or fully closed. Notification IDs are persisted in AsyncStorage so they
- * can be cancelled on alarm update / delete.
+ * expo-notifications.
  *
- * Design choices:
+ * On Android production builds this service is a no-op for alarm scheduling:
+ * the native AlarmModule (AlarmManager → AlarmReceiver → full-screen
+ * notification) is the sole alarm trigger on Android. expo-notifications
+ * would create a parallel, lower-priority notification that fires at the same
+ * time and confuses users (they see a normal banner instead of the full-screen
+ * alarm UI).
+ *
+ * expo-notifications is still used for:
+ *   • iOS alarm scheduling (AlarmManager is Android-only)
+ *   • Expo Go development testing on Android (native module not loaded)
+ *   • Permission requests on Android 13+ (POST_NOTIFICATIONS)
+ *   • The Android notification channel setup (so the permission prompt shows
+ *     the correct channel name in Settings)
+ *
+ * Design choices (iOS / Expo Go):
  *   • One WEEKLY scheduled notification per enabled repeat-day per alarm.
  *   • One DATE (next occurrence) notification for alarms with no repeat days.
- *   • syncAlarms() cancels all managed notifications then reschedules — keeps
- *     it simple and avoids stale-ID edge-cases.
- *   • Web is a no-op: expo-notifications is native-only.
+ *   • syncAlarmNotifications() cancels all managed notifications then
+ *     reschedules — keeps it simple and avoids stale-ID edge-cases.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Alarm } from '@/context/AppContext';
+import { isNativeAlarmAvailable } from '@/services/nativeAlarmService';
 
 const NOTIF_IDS_KEY = '@unsnwooze_notif_ids';
 const ALARM_CHANNEL_ID = 'alarms';
@@ -85,9 +97,18 @@ export async function requestNotificationPermission(): Promise<boolean> {
 /**
  * Cancel all UNSNWOOZE-managed notifications and reschedule for every enabled
  * alarm. Call this any time the alarm list changes.
+ *
+ * NO-OP on Android production builds — AlarmManager is the sole trigger there.
+ * expo-notifications scheduling only runs on iOS and Expo Go (dev).
  */
 export async function syncAlarmNotifications(alarms: Alarm[]): Promise<void> {
   if (Platform.OS === 'web' || IS_EXPO_GO) return;
+  // On Android when the native AlarmModule is loaded, AlarmManager handles all
+  // alarm scheduling and fires a full-screen notification via AlarmReceiver.
+  // Running expo-notifications in parallel would post a second, normal-priority
+  // notification at the same time — causing the "behaves like a regular
+  // notification" experience. Skip entirely on Android production.
+  if (isNativeAlarmAvailable()) return;
   try {
     // Cancel previously managed notifications
     const oldIds = await loadIds();
